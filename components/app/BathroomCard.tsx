@@ -1,0 +1,110 @@
+import { Link } from 'expo-router';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+
+import { ACCESS_LABELS, FEATURE_LABELS, TagChip } from './TagChip';
+import { palette, shadow } from './tokens';
+import type { Bathroom } from '@/src/data/types';
+
+interface BathroomCardProps {
+  bathroom: Bathroom;
+  compact?: boolean;
+}
+
+export function BathroomCard({ bathroom, compact }: BathroomCardProps) {
+  const primaryTags = bathroom.features.slice(0, compact ? 2 : 4);
+
+  return (
+    <Link href={{ pathname: '/bathroom/[id]', params: { id: bathroom.id } }} asChild>
+      <Pressable style={({ pressed }) => [styles.card, compact && styles.compact, pressed && styles.pressed]}>
+        <Image source={{ uri: bathroom.photos[0]?.url }} style={styles.image} />
+        <View style={styles.body}>
+          <View style={styles.topLine}>
+            <Text style={styles.name} numberOfLines={1}>
+              {bathroom.name}
+            </Text>
+            <Text style={styles.score}>{bathroom.scores.community.toFixed(1)}</Text>
+          </View>
+          <Text style={styles.meta} numberOfLines={1}>
+            {bathroom.neighborhood} · {ACCESS_LABELS[bathroom.access]} · {bathroom.priceNote}
+          </Text>
+          <View style={styles.tagRow}>
+            {primaryTags.map((tag) => (
+              <TagChip key={tag} label={FEATURE_LABELS[tag]} tone={tag === 'clean' ? 'good' : 'neutral'} />
+            ))}
+          </View>
+          {!compact && (
+            <Text style={styles.note} numberOfLines={2}>
+              {bathroom.directionsNote}
+            </Text>
+          )}
+        </View>
+      </Pressable>
+    </Link>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    flexDirection: 'row',
+    gap: 12,
+    borderRadius: 8,
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.line,
+    padding: 10,
+    ...shadow,
+  },
+  compact: {
+    elevation: 1,
+  },
+  pressed: {
+    transform: [{ scale: 0.99 }],
+  },
+  image: {
+    width: 82,
+    minHeight: 104,
+    borderRadius: 7,
+    backgroundColor: palette.line,
+  },
+  body: {
+    flex: 1,
+    gap: 7,
+  },
+  topLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  name: {
+    flex: 1,
+    color: palette.ink,
+    fontSize: 17,
+    fontWeight: '900',
+  },
+  score: {
+    minWidth: 42,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: palette.mint,
+    color: palette.jade,
+    textAlign: 'center',
+    paddingVertical: 6,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  meta: {
+    color: palette.muted,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  tagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  note: {
+    color: palette.ink,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+});

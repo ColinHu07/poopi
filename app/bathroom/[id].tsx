@@ -1,0 +1,211 @@
+import { Link, Stack, useLocalSearchParams } from 'expo-router';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+
+import { ScorePill } from '@/components/app/ScorePill';
+import { Section, Screen } from '@/components/app/Screen';
+import { ACCESS_LABELS, FEATURE_LABELS, TagChip } from '@/components/app/TagChip';
+import { palette } from '@/components/app/tokens';
+import { getBathroomById } from '@/src/services/bathroomApi';
+
+export default function BathroomDetailScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const bathroom = getBathroomById(id);
+
+  if (!bathroom) {
+    return (
+      <Screen title="Bathroom not found">
+        <Text style={styles.missing}>That bathroom is not in the local launch dataset.</Text>
+      </Screen>
+    );
+  }
+
+  return (
+    <>
+      <Stack.Screen options={{ title: bathroom.name }} />
+      <Screen kicker={bathroom.neighborhood} title={bathroom.name}>
+        <Image source={{ uri: bathroom.photos[0]?.url }} style={styles.hero} />
+
+        <View style={styles.scoreRow}>
+          <ScorePill label="you" value={bathroom.scores.personal} />
+          <ScorePill label="friends" value={bathroom.scores.friends} muted />
+          <ScorePill label="all" value={bathroom.scores.community} muted />
+        </View>
+
+        <View style={styles.actions}>
+          <Link href={{ pathname: '/modal', params: { bathroomId: bathroom.id } }} asChild>
+            <Pressable style={styles.primaryButton}>
+              <Text style={styles.primaryButtonText}>Log visit</Text>
+            </Pressable>
+          </Link>
+          <Pressable style={styles.secondaryButton}>
+            <Text style={styles.secondaryButtonText}>Save</Text>
+          </Pressable>
+          <Pressable style={styles.secondaryButton}>
+            <Text style={styles.secondaryButtonText}>Report</Text>
+          </Pressable>
+        </View>
+
+        <Section title="Access">
+          <View style={styles.factGrid}>
+            <Fact label="Access" value={ACCESS_LABELS[bathroom.access]} />
+            <Fact label="Cost" value={bathroom.priceNote} />
+            <Fact label="Hours" value={bathroom.openingHours} />
+            <Fact label="Confidence" value={`${Math.round(bathroom.confidence * 100)}%`} />
+          </View>
+        </Section>
+
+        <Section title="Tags">
+          <View style={styles.tags}>
+            {bathroom.features.map((tag) => (
+              <TagChip key={tag} label={FEATURE_LABELS[tag]} tone={tag === 'clean' || tag === 'safe' ? 'good' : 'neutral'} />
+            ))}
+          </View>
+        </Section>
+
+        <Section title="Notes">
+          <View style={styles.noteBox}>
+            <Text style={styles.note}>{bathroom.directionsNote}</Text>
+          </View>
+        </Section>
+
+        <Section title="Sources">
+          {bathroom.sourceRefs.map((source) => (
+            <View key={`${source.sourceName}-${source.sourceId}`} style={styles.sourceRow}>
+              <View>
+                <Text style={styles.sourceName}>{source.sourceName.replace(/_/g, ' ')}</Text>
+                <Text style={styles.sourceMeta}>
+                  {source.sourceId} · {source.license}
+                </Text>
+              </View>
+              <TagChip label={`${Math.round(source.confidence * 100)}%`} tone="info" />
+            </View>
+          ))}
+        </Section>
+      </Screen>
+    </>
+  );
+}
+
+function Fact({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.fact}>
+      <Text style={styles.factLabel}>{label}</Text>
+      <Text style={styles.factValue}>{value}</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  hero: {
+    height: 260,
+    borderRadius: 8,
+    backgroundColor: palette.line,
+  },
+  missing: {
+    color: palette.ink,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  scoreRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  primaryButton: {
+    flex: 1.4,
+    minHeight: 48,
+    borderRadius: 8,
+    backgroundColor: palette.coral,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryButtonText: {
+    color: '#fffaf6',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  secondaryButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondaryButtonText: {
+    color: palette.ink,
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  factGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  fact: {
+    width: '48%',
+    minHeight: 72,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.surface,
+    padding: 12,
+  },
+  factLabel: {
+    color: palette.muted,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  factValue: {
+    color: palette.ink,
+    fontSize: 15,
+    fontWeight: '900',
+    marginTop: 6,
+  },
+  tags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  noteBox: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.surface,
+    padding: 14,
+  },
+  note: {
+    color: palette.ink,
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: '700',
+  },
+  sourceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.surface,
+    padding: 12,
+  },
+  sourceName: {
+    color: palette.ink,
+    fontSize: 15,
+    fontWeight: '900',
+    textTransform: 'capitalize',
+  },
+  sourceMeta: {
+    color: palette.muted,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 3,
+  },
+});
