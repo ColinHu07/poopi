@@ -8,6 +8,7 @@
     "scheme": "poopi",
     "userInterfaceStyle": "automatic",
     "ios": {
+      "bundleIdentifier": "com.colinhu.poopi",
       "supportsTablet": true
     },
     "android": {

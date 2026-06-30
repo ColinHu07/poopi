@@ -426,7 +426,6 @@ function GuideLabelsPanel({ bathroom }: { bathroom?: Bathroom }) {
         title="Edit Guides and Labels"
         chips={BATHROOM_LABELS.slice(0, 9)}
       />
-      <EditorRow icon={{ ios: 'person.2', android: 'group', web: 'group' }} title="Tag friends" />
       <EditorRow icon={{ ios: 'calendar', android: 'calendar_month', web: 'calendar_month' }} title="Add a visit date" chips={['Jun 29, 2026']} />
       <EditorRow icon={{ ios: 'square.and.pencil', android: 'edit_square', web: 'edit_square' }} title="Add Notes" />
     </View>
