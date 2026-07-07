@@ -1,38 +1,56 @@
-import { Link } from 'expo-router';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Image, StyleSheet, Text, View } from 'react-native';
 
 import { Screen } from '@/components/app/Screen';
 import { TagChip } from '@/components/app/TagChip';
 import { palette } from '@/components/app/tokens';
+import type { Bathroom, BathroomList } from '@/src/data/types';
 import { getLists } from '@/src/services/bathroomApi';
 
+type ListWithBathrooms = BathroomList & { bathrooms: Bathroom[] };
+
 export default function ListsScreen() {
-  const lists = getLists();
+  const [lists, setLists] = useState<ListWithBathrooms[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getLists()
+      .then(setLists)
+      .finally(() => setLoading(false));
+  }, []);
 
   return (
     <Screen kicker="Saved" title="Bathroom lists" right={<TagChip label={`${lists.length} lists`} tone="info" />}>
-      <View style={styles.stack}>
-        {lists.map((list) => (
-          <View key={list.id} style={styles.card}>
-            <View style={styles.copy}>
-              <View style={styles.titleRow}>
-                <Text style={styles.title}>{list.title}</Text>
-                <TagChip label={list.visibility} tone={list.visibility === 'public' ? 'good' : 'neutral'} />
+      {loading ? (
+        <View style={styles.empty}>
+          <ActivityIndicator color={palette.jade} />
+          <Text style={styles.emptyText}>Loading lists...</Text>
+        </View>
+      ) : lists.length === 0 ? (
+        <View style={styles.empty}>
+          <Text style={styles.emptyTitle}>No lists yet</Text>
+          <Text style={styles.emptyText}>Save bathrooms from the map to build lists like “reliable near campus.”</Text>
+        </View>
+      ) : (
+        <View style={styles.stack}>
+          {lists.map((list) => (
+            <View key={list.id} style={styles.card}>
+              <View style={styles.copy}>
+                <View style={styles.titleRow}>
+                  <Text style={styles.title}>{list.title}</Text>
+                  <TagChip label={list.visibility} tone={list.visibility === 'public' ? 'good' : 'neutral'} />
+                </View>
+                <Text style={styles.description}>{list.description}</Text>
               </View>
-              <Text style={styles.description}>{list.description}</Text>
+              <View style={styles.photos}>
+                {list.bathrooms.slice(0, 4).map((bathroom) => (
+                  <Image key={bathroom.id} source={{ uri: bathroom.photos[0]?.url }} style={styles.photo} />
+                ))}
+              </View>
             </View>
-            <View style={styles.photos}>
-              {list.bathrooms.slice(0, 4).map((bathroom) => (
-                <Link key={bathroom.id} href={{ pathname: '/bathroom/[id]', params: { id: bathroom.id } }} asChild>
-                  <Pressable>
-                    <Image source={{ uri: bathroom.photos[0]?.url }} style={styles.photo} />
-                  </Pressable>
-                </Link>
-              ))}
-            </View>
-          </View>
-        ))}
-      </View>
+          ))}
+        </View>
+      )}
     </Screen>
   );
 }
@@ -80,5 +98,26 @@ const styles = StyleSheet.create({
     width: 86,
     height: 88,
     backgroundColor: palette.line,
+  },
+  empty: {
+    minHeight: 120,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.surface,
+    justifyContent: 'center',
+    padding: 18,
+    gap: 8,
+  },
+  emptyTitle: {
+    color: palette.ink,
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  emptyText: {
+    color: palette.muted,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '700',
   },
 });

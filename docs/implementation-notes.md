@@ -1,21 +1,24 @@
 # Poopi App Notes
 
-This repo implements the MVP as an Expo Router app with a local data service that mirrors the planned API shape. The UI is ready to point at Supabase endpoints once the schema in `supabase/schema.sql` is applied.
+This repo implements the MVP as an Expo Router app with Supabase auth/data wiring, an auth-gated homepage, and a real iOS Apple Maps view. Add the public Supabase env vars from `.env.example`, apply `supabase/schema.sql`, deploy `supabase/functions/import-refuge-nearby`, then restart Expo.
 
 ## Implemented
 
+- Auth flow: welcome, sign up, log in, complete profile, and session-gated tabs.
 - Five-tab mobile app: Map, Rank, Feed, Lists, Profile.
+- Native iOS Apple Maps homepage with Expo Location permission and nearby Refuge/Supabase bathroom loading.
 - Bathroom detail screen with photos, access facts, tags, notes, provenance, confidence, and scores.
 - Log-visit modal with sentiment seed, tags, note, and privacy/moderation copy.
-- Local API facade for nearby search, details, visits, comparisons, reports, lists, feed, and profile.
+- Supabase API facade for nearby search, details, visits, comparisons, reports, lists, feed, and profile.
 - Ranking library with sentiment seeding, Elo comparisons, display score mapping, binary pair selection, Bayesian community score, and recommendation score.
 - Source normalizers for Refuge Restrooms and OSM toilet elements.
 - Dedupe helper using source ids, proximity, normalized names, and normalized addresses.
-- Supabase/PostGIS schema for the planned backend tables.
+- Supabase/PostGIS schema with profiles, RLS policies, user-owned rows, and a nearby bathroom RPC.
+- Refuge import Edge Function for first real restroom markers.
 
-## Next Backend Swap
+## Backend Interfaces
 
-Replace `src/services/bathroomApi.ts` with network calls matching the planned API:
+`src/services/bathroomApi.ts` now exposes client methods matching the planned API:
 
 - `GET /bathrooms/nearby?lat&lng&filters`
 - `GET /bathrooms/:id`
@@ -24,4 +27,4 @@ Replace `src/services/bathroomApi.ts` with network calls matching the planned AP
 - `POST /comparisons`
 - `POST /reports`
 
-Keep the TypeScript types in `src/data/types.ts` as the client contract.
+Keep the TypeScript types in `src/data/types.ts` as the client contract. The visualizer remains fixture-backed so concept screens still work without Supabase.

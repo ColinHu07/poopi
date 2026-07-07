@@ -1,13 +1,13 @@
 import { StatusBar } from 'expo-status-bar';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Section, Screen } from '@/components/app/Screen';
 import { FEATURE_LABELS, TagChip } from '@/components/app/TagChip';
 import { palette } from '@/components/app/tokens';
-import type { FeatureTag, Sentiment } from '@/src/data/types';
-import { getBathroomById, getNearbyBathrooms, logVisit } from '@/src/services/bathroomApi';
+import type { Bathroom, FeatureTag, Sentiment } from '@/src/data/types';
+import { getBathroomById, logVisit } from '@/src/services/bathroomApi';
 
 const SENTIMENTS: Array<{ id: Sentiment; label: string }> = [
   { id: 'liked', label: 'Liked' },
@@ -17,22 +17,40 @@ const SENTIMENTS: Array<{ id: Sentiment; label: string }> = [
 
 const QUICK_TAGS: FeatureTag[] = [
   'clean',
+  'smells_good',
+  'stinks',
+  'comfortable',
+  'wide_seat',
+  'bidet',
   'safe',
   'well_lit',
   'baby_changing',
   'wheelchair_accessible',
   'all_gender',
   'single_stall',
+  'urinal_only',
   'long_line',
 ];
 
 export default function ModalScreen() {
   const { bathroomId } = useLocalSearchParams<{ bathroomId?: string }>();
-  const fallbackBathroom = getNearbyBathrooms()[0];
-  const bathroom = useMemo(() => getBathroomById(bathroomId ?? '') ?? fallbackBathroom, [bathroomId, fallbackBathroom]);
+  const [bathroom, setBathroom] = useState<Bathroom | undefined>();
   const [sentiment, setSentiment] = useState<Sentiment>('liked');
   const [selectedTags, setSelectedTags] = useState<FeatureTag[]>(['clean']);
   const [note, setNote] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!bathroomId) {
+      setLoading(false);
+      return;
+    }
+    getBathroomById(bathroomId)
+      .then(setBathroom)
+      .finally(() => setLoading(false));
+  }, [bathroomId]);
 
   function toggleTag(tag: FeatureTag) {
     setSelectedTags((current) =>
@@ -40,14 +58,47 @@ export default function ModalScreen() {
     );
   }
 
-  function submit() {
-    logVisit({
-      bathroomId: bathroom.id,
-      sentiment,
-      publicNote: note || 'Logged a new visit.',
-      tags: selectedTags,
-    });
-    router.back();
+  async function submit() {
+    if (!bathroom) {
+      return;
+    }
+    setSaving(true);
+    setError('');
+    try {
+      await logVisit({
+        bathroomId: bathroom.id,
+        sentiment,
+        publicNote: note || 'Logged a new visit.',
+        tags: selectedTags,
+      });
+      router.back();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to save visit.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <Screen kicker="New visit" title="Loading">
+        <View style={styles.loading}>
+          <ActivityIndicator color={palette.jade} />
+          <Text style={styles.safetyCopy}>Loading bathroom...</Text>
+        </View>
+      </Screen>
+    );
+  }
+
+  if (!bathroom) {
+    return (
+      <Screen kicker="New visit" title="Bathroom unavailable">
+        <View style={styles.safetyBox}>
+          <Text style={styles.safetyTitle}>Cannot log this yet</Text>
+          <Text style={styles.safetyCopy}>This bathroom needs to be imported into Poopi before it can be logged.</Text>
+        </View>
+      </Screen>
+    );
   }
 
   return (
@@ -100,8 +151,10 @@ export default function ModalScreen() {
         </Text>
       </View>
 
-      <Pressable style={styles.submitButton} onPress={submit}>
-        <Text style={styles.submitText}>Save visit</Text>
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      <Pressable disabled={saving} style={styles.submitButton} onPress={submit}>
+        {saving ? <ActivityIndicator color="#fffaf6" /> : <Text style={styles.submitText}>Save visit</Text>}
       </Pressable>
 
       <StatusBar style={Platform.OS === 'ios' ? 'light' : 'auto'} />
@@ -170,6 +223,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     fontWeight: '700',
+  },
+  error: {
+    color: palette.coral,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  loading: {
+    minHeight: 130,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
   },
   submitButton: {
     minHeight: 52,

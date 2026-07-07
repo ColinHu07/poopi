@@ -1,10 +1,12 @@
 import { SymbolView } from 'expo-symbols';
-import { Tabs } from 'expo-router';
-import { Text, type ColorValue } from 'react-native';
+import { Redirect, Tabs } from 'expo-router';
+import { ActivityIndicator, Text, View, type ColorValue } from 'react-native';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
+import { palette } from '@/components/app/tokens';
+import { useAuth } from '@/src/providers/AuthProvider';
 
 function TabIcon({ color, name, fallback }: { color: ColorValue; name: any; fallback: string }) {
   return (
@@ -19,6 +21,23 @@ function TabIcon({ color, name, fallback }: { color: ColorValue; name: any; fall
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const { configured, loading, profileComplete, session } = useAuth();
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.paper }}>
+        <ActivityIndicator color={palette.jade} />
+      </View>
+    );
+  }
+
+  if (!configured || !session) {
+    return <Redirect href={'/welcome' as any} />;
+  }
+
+  if (!profileComplete) {
+    return <Redirect href={'/complete-profile' as any} />;
+  }
 
   return (
     <Tabs

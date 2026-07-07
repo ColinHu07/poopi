@@ -1,48 +1,76 @@
-import { useMemo, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ScorePill } from '@/components/app/ScorePill';
 import { Screen } from '@/components/app/Screen';
 import { TagChip } from '@/components/app/TagChip';
 import { palette, shadow } from '@/components/app/tokens';
-import { getBathroomById, getRankedBathrooms, recordComparison } from '@/src/services/bathroomApi';
+import type { Bathroom, UserRating } from '@/src/data/types';
+import { getRankedBathrooms, recordComparison } from '@/src/services/bathroomApi';
 
-const comparisonPairs = [
-  ['hudson-yards', 'nypl-main'],
-  ['falchi-building', 'mccarren-field-house'],
-  ['whole-foods-union', 'port-authority'],
-  ['bryant-park', 'hudson-yards'],
-];
+type RankedItem = { bathroom: Bathroom; rating: UserRating; score: number; rank: number };
 
 export default function RankScreen() {
-  const [version, setVersion] = useState(0);
-  const [pairIndex, setPairIndex] = useState(0);
-  const ranked = useMemo(() => getRankedBathrooms(), [version]);
-  const pair = comparisonPairs[pairIndex % comparisonPairs.length];
-  const left = getBathroomById(pair[0]);
-  const right = getBathroomById(pair[1]);
+  const [ranked, setRanked] = useState<RankedItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  function choose(winnerId: string, loserId: string) {
-    recordComparison(winnerId, loserId);
-    setPairIndex((current) => current + 1);
-    setVersion((current) => current + 1);
+  useEffect(() => {
+    loadRanked();
+  }, []);
+
+  async function loadRanked() {
+    setLoading(true);
+    try {
+      setRanked(await getRankedBathrooms());
+    } finally {
+      setLoading(false);
+    }
   }
+
+  async function choose(winnerId: string, loserId: string) {
+    setSaving(true);
+    try {
+      await recordComparison(winnerId, loserId);
+      await loadRanked();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const left = ranked[0]?.bathroom;
+  const right = ranked[1]?.bathroom;
 
   return (
     <Screen kicker="Personal score" title="Your rankings" right={<ScorePill label="top" value={ranked[0]?.score} />}>
-      {left && right ? (
+      {loading ? (
+        <View style={styles.empty}>
+          <ActivityIndicator color={palette.jade} />
+          <Text style={styles.emptyText}>Loading your rankings...</Text>
+        </View>
+      ) : ranked.length === 0 ? (
+        <View style={styles.empty}>
+          <Text style={styles.emptyTitle}>No rankings yet</Text>
+          <Text style={styles.emptyText}>Log a bathroom visit from the map to start your personal comparison list.</Text>
+        </View>
+      ) : left && right ? (
         <View style={styles.compareCard}>
           <View style={styles.compareHeader}>
-            <Text style={styles.compareTitle}>This or that?</Text>
-            <TagChip label="Elo update" tone="info" />
+            <Text style={styles.compareTitle}>Which was better?</Text>
+            <TagChip label={saving ? 'Saving' : 'Elo update'} tone="info" />
           </View>
           <View style={styles.pairRow}>
-            <Choice bathroomId={left.id} onPress={() => choose(left.id, right.id)} />
+            <Choice bathroom={left} onPress={() => choose(left.id, right.id)} />
             <Text style={styles.versus}>VS</Text>
-            <Choice bathroomId={right.id} onPress={() => choose(right.id, left.id)} />
+            <Choice bathroom={right} onPress={() => choose(right.id, left.id)} />
           </View>
         </View>
-      ) : null}
+      ) : (
+        <View style={styles.empty}>
+          <Text style={styles.emptyTitle}>One visit logged</Text>
+          <Text style={styles.emptyText}>Log one more bathroom to unlock this-or-that comparisons.</Text>
+        </View>
+      )}
 
       <View style={styles.list}>
         {ranked.map(({ bathroom, rank, score, rating }) => (
@@ -65,11 +93,7 @@ export default function RankScreen() {
   );
 }
 
-function Choice({ bathroomId, onPress }: { bathroomId: string; onPress: () => void }) {
-  const bathroom = getBathroomById(bathroomId);
-  if (!bathroom) {
-    return null;
-  }
+function Choice({ bathroom, onPress }: { bathroom: Bathroom; onPress: () => void }) {
   return (
     <Pressable style={({ pressed }) => [styles.choice, pressed && styles.pressed]} onPress={onPress}>
       <Image source={{ uri: bathroom.photos[0]?.url }} style={styles.choiceImage} />
@@ -170,7 +194,28 @@ const styles = StyleSheet.create({
   rankMeta: {
     color: palette.muted,
     fontSize: 12,
+    fontWeight: '800',
+    marginTop: 4,
+  },
+  empty: {
+    minHeight: 120,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.surface,
+    padding: 18,
+    justifyContent: 'center',
+    gap: 8,
+  },
+  emptyTitle: {
+    color: palette.ink,
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  emptyText: {
+    color: palette.muted,
+    fontSize: 14,
+    lineHeight: 20,
     fontWeight: '700',
-    marginTop: 3,
   },
 });

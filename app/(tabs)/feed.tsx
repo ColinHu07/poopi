@@ -1,47 +1,61 @@
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { Screen } from '@/components/app/Screen';
 import { TagChip } from '@/components/app/TagChip';
 import { palette } from '@/components/app/tokens';
-import { getBathroomById, getFeedItems } from '@/src/services/bathroomApi';
+import type { FeedItem } from '@/src/data/types';
+import { getFeedItems } from '@/src/services/bathroomApi';
 
 export default function FeedScreen() {
-  const items = getFeedItems();
+  const [items, setItems] = useState<FeedItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getFeedItems()
+      .then(setItems)
+      .finally(() => setLoading(false));
+  }, []);
 
   return (
-    <Screen kicker="Friends" title="Live notes" right={<TagChip label="3 updates" tone="good" />}>
-      <View style={styles.feed}>
-        {items.map((item) => {
-          const bathroom = getBathroomById(item.bathroomId);
-          if (!bathroom) {
-            return null;
-          }
-          return (
+    <Screen kicker="Friends" title="Live notes" right={<TagChip label={`${items.length} updates`} tone="good" />}>
+      {loading ? (
+        <View style={styles.empty}>
+          <ActivityIndicator color={palette.jade} />
+          <Text style={styles.emptyText}>Loading feed...</Text>
+        </View>
+      ) : items.length === 0 ? (
+        <View style={styles.empty}>
+          <Text style={styles.emptyTitle}>No feed yet</Text>
+          <Text style={styles.emptyText}>Follow friends or log your first bathroom visit to start seeing activity.</Text>
+        </View>
+      ) : (
+        <View style={styles.feed}>
+          {items.map((item) => (
             <View key={item.id} style={styles.item}>
               <View style={styles.avatar}>
                 <Text style={styles.avatarText}>{item.actorAvatar}</Text>
               </View>
               <View style={styles.body}>
                 <Text style={styles.title}>
-                  {item.actorName} {verbForAction(item.action)} {bathroom.name}
+                  {item.actorName} {verbForAction(item.action)}
                 </Text>
                 <Text style={styles.note}>{item.note}</Text>
                 <Text style={styles.time}>{item.createdAt}</Text>
               </View>
-              <Image source={{ uri: bathroom.photos[0]?.url }} style={styles.image} />
             </View>
-          );
-        })}
-      </View>
+          ))}
+        </View>
+      )}
     </Screen>
   );
 }
 
 function verbForAction(action: string) {
-  if (action === 'ranked') return 'ranked';
-  if (action === 'listed') return 'saved';
-  if (action === 'confirmed') return 'confirmed';
-  return 'logged';
+  if (action === 'ranked') return 'ranked a bathroom';
+  if (action === 'listed') return 'saved a bathroom';
+  if (action === 'confirmed') return 'confirmed access info';
+  return 'logged a bathroom';
 }
 
 const styles = StyleSheet.create({
@@ -89,10 +103,25 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
   },
-  image: {
-    width: 58,
-    height: 58,
+  empty: {
+    minHeight: 120,
     borderRadius: 8,
-    backgroundColor: palette.line,
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.surface,
+    justifyContent: 'center',
+    padding: 18,
+    gap: 8,
+  },
+  emptyTitle: {
+    color: palette.ink,
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  emptyText: {
+    color: palette.muted,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '700',
   },
 });

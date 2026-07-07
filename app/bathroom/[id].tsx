@@ -1,20 +1,53 @@
 import { Link, Stack, useLocalSearchParams } from 'expo-router';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ScorePill } from '@/components/app/ScorePill';
 import { Section, Screen } from '@/components/app/Screen';
 import { ACCESS_LABELS, FEATURE_LABELS, TagChip } from '@/components/app/TagChip';
 import { palette } from '@/components/app/tokens';
+import type { Bathroom } from '@/src/data/types';
 import { getBathroomById } from '@/src/services/bathroomApi';
 
 export default function BathroomDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const bathroom = getBathroomById(id);
+  const [bathroom, setBathroom] = useState<Bathroom | undefined>();
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    getBathroomById(id)
+      .then((nextBathroom) => {
+        if (!cancelled) {
+          setBathroom(nextBathroom);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  if (loading) {
+    return (
+      <Screen title="Loading bathroom">
+        <View style={styles.loading}>
+          <ActivityIndicator color={palette.jade} />
+          <Text style={styles.missing}>Loading access notes...</Text>
+        </View>
+      </Screen>
+    );
+  }
 
   if (!bathroom) {
     return (
       <Screen title="Bathroom not found">
-        <Text style={styles.missing}>That bathroom is not in the local launch dataset.</Text>
+        <Text style={styles.missing}>That bathroom is not available in Poopi yet.</Text>
       </Screen>
     );
   }
@@ -22,7 +55,7 @@ export default function BathroomDetailScreen() {
   return (
     <>
       <Stack.Screen options={{ title: bathroom.name }} />
-      <Screen kicker={bathroom.neighborhood} title={bathroom.name}>
+      <Screen kicker={bathroom.neighborhood || bathroom.city} title={bathroom.name}>
         <Image source={{ uri: bathroom.photos[0]?.url }} style={styles.hero} />
 
         <View style={styles.scoreRow}>
@@ -56,30 +89,44 @@ export default function BathroomDetailScreen() {
 
         <Section title="Tags">
           <View style={styles.tags}>
-            {bathroom.features.map((tag) => (
-              <TagChip key={tag} label={FEATURE_LABELS[tag]} tone={tag === 'clean' || tag === 'safe' ? 'good' : 'neutral'} />
-            ))}
+            {bathroom.features.length ? (
+              bathroom.features.map((tag) => (
+                <TagChip
+                  key={tag}
+                  label={FEATURE_LABELS[tag]}
+                  tone={tag === 'clean' || tag === 'safe' ? 'good' : 'neutral'}
+                />
+              ))
+            ) : (
+              <TagChip label="No tags yet" tone="neutral" />
+            )}
           </View>
         </Section>
 
         <Section title="Notes">
           <View style={styles.noteBox}>
-            <Text style={styles.note}>{bathroom.directionsNote}</Text>
+            <Text style={styles.note}>{bathroom.directionsNote || 'No directions note yet.'}</Text>
           </View>
         </Section>
 
         <Section title="Sources">
-          {bathroom.sourceRefs.map((source) => (
-            <View key={`${source.sourceName}-${source.sourceId}`} style={styles.sourceRow}>
-              <View>
-                <Text style={styles.sourceName}>{source.sourceName.replace(/_/g, ' ')}</Text>
-                <Text style={styles.sourceMeta}>
-                  {source.sourceId} · {source.license}
-                </Text>
+          {bathroom.sourceRefs.length ? (
+            bathroom.sourceRefs.map((source) => (
+              <View key={`${source.sourceName}-${source.sourceId}`} style={styles.sourceRow}>
+                <View style={styles.sourceCopy}>
+                  <Text style={styles.sourceName}>{source.sourceName.replace(/_/g, ' ')}</Text>
+                  <Text style={styles.sourceMeta} numberOfLines={2}>
+                    {source.sourceId} · {source.license}
+                  </Text>
+                </View>
+                <TagChip label={`${Math.round(source.confidence * 100)}%`} tone="info" />
               </View>
-              <TagChip label={`${Math.round(source.confidence * 100)}%`} tone="info" />
+            ))
+          ) : (
+            <View style={styles.noteBox}>
+              <Text style={styles.note}>No source metadata yet.</Text>
             </View>
-          ))}
+          )}
         </Section>
       </Screen>
     </>
@@ -100,6 +147,16 @@ const styles = StyleSheet.create({
     height: 260,
     borderRadius: 8,
     backgroundColor: palette.line,
+  },
+  loading: {
+    minHeight: 140,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
   },
   missing: {
     color: palette.ink,
@@ -195,6 +252,9 @@ const styles = StyleSheet.create({
     borderColor: palette.line,
     backgroundColor: palette.surface,
     padding: 12,
+  },
+  sourceCopy: {
+    flex: 1,
   },
   sourceName: {
     color: palette.ink,

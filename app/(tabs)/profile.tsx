@@ -1,40 +1,75 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Section, Screen } from '@/components/app/Screen';
 import { FEATURE_LABELS, TagChip } from '@/components/app/TagChip';
 import { palette } from '@/components/app/tokens';
-import { getProfileSummary } from '@/src/services/bathroomApi';
+import type { FeatureTag } from '@/src/data/types';
+import { useAuth } from '@/src/providers/AuthProvider';
+import { getProfileSummary, type ProfileSummary } from '@/src/services/bathroomApi';
 
 export default function ProfileScreen() {
-  const profile = getProfileSummary();
-  const topTags = [...new Set(profile.favoriteTags)].slice(0, 6);
+  const { signOut } = useAuth();
+  const [profile, setProfile] = useState<ProfileSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getProfileSummary()
+      .then(setProfile)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const topTags = [...new Set(profile?.favoriteTags ?? [])].slice(0, 6) as FeatureTag[];
 
   return (
-    <Screen kicker={profile.handle} title={profile.displayName} right={<TagChip label={profile.city} tone="good" />}>
-      <View style={styles.metrics}>
-        <Metric label="ranked" value={profile.rankedCount} />
-        <Metric label="visited" value={profile.visitedCount} />
-        <Metric label="lists" value={profile.listsCount} />
-      </View>
-
-      <Section title="Signals">
-        <View style={styles.tags}>
-          {topTags.map((tag) => (
-            <TagChip key={tag} label={FEATURE_LABELS[tag]} tone="info" />
-          ))}
-        </View>
-      </Section>
-
-      <Section title="Trust">
+    <Screen
+      kicker={profile?.handle ?? '@new'}
+      title={profile?.displayName ?? 'Profile'}
+      right={<TagChip label={profile?.city ?? 'New York'} tone="good" />}>
+      {loading || !profile ? (
         <View style={styles.panel}>
-          <Text style={styles.panelNumber}>{profile.confidenceBoosts}</Text>
-          <Text style={styles.panelText}>source confirmations across imported and community records</Text>
+          <ActivityIndicator color={palette.jade} />
+          <Text style={styles.panelText}>Loading profile...</Text>
         </View>
-        <View style={styles.panel}>
-          <Text style={styles.panelNumber}>Queued</Text>
-          <Text style={styles.panelText}>photos with faces, people, or sensitive reflections stay out of the feed</Text>
-        </View>
-      </Section>
+      ) : (
+        <>
+          <View style={styles.metrics}>
+            <Metric label="ranked" value={profile.rankedCount} />
+            <Metric label="visited" value={profile.visitedCount} />
+            <Metric label="lists" value={profile.listsCount} />
+          </View>
+
+          <Section title="Signals">
+            {topTags.length ? (
+              <View style={styles.tags}>
+                {topTags.map((tag) => (
+                  <TagChip key={tag} label={FEATURE_LABELS[tag]} tone="info" />
+                ))}
+              </View>
+            ) : (
+              <View style={styles.panel}>
+                <Text style={styles.panelNumber}>Fresh account</Text>
+                <Text style={styles.panelText}>Log visits to build your personal bathroom taste profile.</Text>
+              </View>
+            )}
+          </Section>
+
+          <Section title="Trust">
+            <View style={styles.panel}>
+              <Text style={styles.panelNumber}>{profile.confidenceBoosts}</Text>
+              <Text style={styles.panelText}>source confirmations from your account</Text>
+            </View>
+            <View style={styles.panel}>
+              <Text style={styles.panelNumber}>Strict</Text>
+              <Text style={styles.panelText}>photos with people, kids, faces, or sensitive reflections stay out of public views</Text>
+            </View>
+          </Section>
+        </>
+      )}
+
+      <Pressable style={styles.signOutButton} onPress={signOut}>
+        <Text style={styles.signOutText}>Sign out</Text>
+      </Pressable>
     </Screen>
   );
 }
@@ -81,7 +116,7 @@ const styles = StyleSheet.create({
     borderColor: palette.line,
     backgroundColor: palette.surface,
     padding: 14,
-    gap: 4,
+    gap: 6,
   },
   panelNumber: {
     color: palette.coral,
@@ -93,5 +128,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     lineHeight: 20,
+  },
+  signOutButton: {
+    minHeight: 48,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  signOutText: {
+    color: palette.coral,
+    fontSize: 15,
+    fontWeight: '900',
   },
 });

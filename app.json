@@ -34,7 +34,14 @@
           "resizeMode": "contain",
           "backgroundColor": "#f8f7f2"
         }
-      ]
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow Poopi to find nearby bathrooms."
+        }
+      ],
+      "expo-maps"
     ],
     "experiments": {
       "typedRoutes": true

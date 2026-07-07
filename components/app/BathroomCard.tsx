@@ -8,36 +8,50 @@ import type { Bathroom } from '@/src/data/types';
 interface BathroomCardProps {
   bathroom: Bathroom;
   compact?: boolean;
+  onPress?: () => void;
 }
 
-export function BathroomCard({ bathroom, compact }: BathroomCardProps) {
+export function BathroomCard({ bathroom, compact, onPress }: BathroomCardProps) {
   const primaryTags = bathroom.features.slice(0, compact ? 2 : 4);
+  const content = (
+    <>
+      <Image source={{ uri: bathroom.photos[0]?.url }} style={styles.image} />
+      <View style={styles.body}>
+        <View style={styles.topLine}>
+          <Text style={styles.name} numberOfLines={1}>
+            {bathroom.name}
+          </Text>
+          <Text style={styles.score}>{bathroom.scores.community.toFixed(1)}</Text>
+        </View>
+        <Text style={styles.meta} numberOfLines={1}>
+          {bathroom.neighborhood} · {ACCESS_LABELS[bathroom.access]} · {bathroom.priceNote}
+        </Text>
+        <View style={styles.tagRow}>
+          {primaryTags.map((tag) => (
+            <TagChip key={tag} label={FEATURE_LABELS[tag]} tone={tag === 'clean' ? 'good' : 'neutral'} />
+          ))}
+        </View>
+        {!compact && (
+          <Text style={styles.note} numberOfLines={2}>
+            {bathroom.directionsNote}
+          </Text>
+        )}
+      </View>
+    </>
+  );
+
+  if (onPress) {
+    return (
+      <Pressable onPress={onPress} style={({ pressed }) => [styles.card, compact && styles.compact, pressed && styles.pressed]}>
+        {content}
+      </Pressable>
+    );
+  }
 
   return (
     <Link href={{ pathname: '/bathroom/[id]', params: { id: bathroom.id } }} asChild>
       <Pressable style={({ pressed }) => [styles.card, compact && styles.compact, pressed && styles.pressed]}>
-        <Image source={{ uri: bathroom.photos[0]?.url }} style={styles.image} />
-        <View style={styles.body}>
-          <View style={styles.topLine}>
-            <Text style={styles.name} numberOfLines={1}>
-              {bathroom.name}
-            </Text>
-            <Text style={styles.score}>{bathroom.scores.community.toFixed(1)}</Text>
-          </View>
-          <Text style={styles.meta} numberOfLines={1}>
-            {bathroom.neighborhood} · {ACCESS_LABELS[bathroom.access]} · {bathroom.priceNote}
-          </Text>
-          <View style={styles.tagRow}>
-            {primaryTags.map((tag) => (
-              <TagChip key={tag} label={FEATURE_LABELS[tag]} tone={tag === 'clean' ? 'good' : 'neutral'} />
-            ))}
-          </View>
-          {!compact && (
-            <Text style={styles.note} numberOfLines={2}>
-              {bathroom.directionsNote}
-            </Text>
-          )}
-        </View>
+        {content}
       </Pressable>
     </Link>
   );

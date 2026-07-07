@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
+import { AuthProvider } from '@/src/providers/AuthProvider';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -13,7 +14,7 @@ export {
 
 export const unstable_settings = {
   // Ensure that reloading on `/modal` keeps a back button present.
-  initialRouteName: '(tabs)',
+  initialRouteName: 'index',
 };
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -46,13 +47,17 @@ function RootLayoutNav() {
   const colorScheme = useColorScheme();
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="bathroom/[id]" options={{ headerTitle: 'Bathroom' }} />
-        <Stack.Screen name="visualizer" options={{ title: 'Visualizer' }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Log visit' }} />
-      </Stack>
-    </ThemeProvider>
+    <AuthProvider>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <Stack>
+          <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="bathroom/[id]" options={{ headerTitle: 'Bathroom' }} />
+          <Stack.Screen name="visualizer" options={{ title: 'Visualizer' }} />
+          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Log visit' }} />
+        </Stack>
+      </ThemeProvider>
+    </AuthProvider>
   );
 }

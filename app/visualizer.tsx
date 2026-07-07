@@ -13,10 +13,9 @@ import {
 } from 'react-native';
 
 import { FEATURE_LABELS } from '@/components/app/TagChip';
-import { seedUserRatings } from '@/src/data/fixtures';
+import { seedBathrooms, seedUserRatings } from '@/src/data/fixtures';
 import type { Bathroom, BathroomFilters, FeatureTag, UserRating } from '@/src/data/types';
 import { applyEloComparison, distanceKm, scoreMapFromRatings, sortRatings } from '@/src/lib/ranking';
-import { getBathroomById, getNearbyBathrooms } from '@/src/services/bathroomApi';
 
 const HOME = { latitude: 40.7536, longitude: -73.9832 };
 
@@ -101,6 +100,25 @@ const BATHROOM_LABELS = [
   'No code',
 ];
 
+function getDemoBathroomById(id: string): Bathroom | undefined {
+  return seedBathrooms.find((bathroom) => bathroom.id === id);
+}
+
+function getDemoNearbyBathrooms(filters: BathroomFilters = {}): Bathroom[] {
+  return seedBathrooms.filter((bathroom) => {
+    if (filters.openNow && !bathroom.isOpenNow) return false;
+    if (filters.free && bathroom.access !== 'public') return false;
+    if (filters.wheelchair && !bathroom.features.includes('wheelchair_accessible')) return false;
+    if (filters.babyChanging && !bathroom.features.includes('baby_changing')) return false;
+    if (filters.allGender && !bathroom.features.includes('all_gender')) return false;
+    if (filters.singleStall && !bathroom.features.includes('single_stall')) return false;
+    if (filters.customersOnly && bathroom.access !== 'customers_only') return false;
+    if (filters.paid && bathroom.access !== 'paid') return false;
+    if (filters.highConfidence && bathroom.confidence < 0.8) return false;
+    return true;
+  });
+}
+
 const cobalt = '#3157ff';
 const inkBlue = '#171827';
 const citrus = '#d9ff5b';
@@ -117,14 +135,14 @@ export default function VisualizerScreen() {
   const [ratings, setRatings] = useState<UserRating[]>(seedUserRatings.map((rating) => ({ ...rating })));
   const [pairIndex, setPairIndex] = useState(0);
   const scenario = SCENARIOS.find((item) => item.id === scenarioId) ?? SCENARIOS[0];
-  const bathrooms = useMemo(() => getNearbyBathrooms(scenario.filters), [scenario]);
+  const bathrooms = useMemo(() => getDemoNearbyBathrooms(scenario.filters), [scenario]);
   const scoreMap = useMemo(() => scoreMapFromRatings(ratings), [ratings]);
   const ranked = useMemo(
     () =>
       sortRatings(ratings)
         .map((rating, index) => ({
           rating,
-          bathroom: getBathroomById(rating.bathroomId),
+          bathroom: getDemoBathroomById(rating.bathroomId),
           rank: index + 1,
           score: scoreMap[rating.bathroomId],
         }))
@@ -132,10 +150,10 @@ export default function VisualizerScreen() {
     [ratings, scoreMap],
   );
   const featured = bathrooms.slice(0, 4);
-  const heroBathroom = featured[0] ?? getNearbyBathrooms({})[0];
+  const heroBathroom = featured[0] ?? getDemoNearbyBathrooms({})[0];
   const pair = PAIRS[pairIndex % PAIRS.length];
-  const left = getBathroomById(pair[0]);
-  const right = getBathroomById(pair[1]);
+  const left = getDemoBathroomById(pair[0]);
+  const right = getDemoBathroomById(pair[1]);
 
   function choose(winnerId: string, loserId: string) {
     setRatings((current) => applyEloComparison(current, winnerId, loserId));
