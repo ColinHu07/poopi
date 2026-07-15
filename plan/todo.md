@@ -50,30 +50,39 @@
 4. **Needs are constraints.** Accessibility, open status, access type, and budget filters are applied before recommendation ranking.
 5. **Contributing is quick.** A useful visit review should take less than 30 seconds; notes and photos remain optional.
 6. **Privacy is structural.** Public profile data is deliberately limited, private notes never enter public queries, and sensitive bathroom photos are prohibited.
+7. **Rate, then tag.** Positive tags are optional endorsements unlocked only after the user chooses an overall bathroom rating; tags cannot be submitted by themselves.
 
 ## Feedback taxonomy
 
-Split durable bathroom facts from visit-specific conditions. Do not keep vague or temporary values such as `comfortable`, `wide_seat`, `clean`, `smells_good`, `stinks`, `long_line`, or `out_of_order` in `BathroomFeature`.
+Poopi's grading tags are positive-only, Beli-style endorsements. They are attached to a completed rating, not treated as standalone bathroom facts. Negative or urgent conditions such as dirty, unsafe, closed, or out of order belong in the separate report/status flow.
 
-| Group | Values captured |
+| Group | Approved grading tags |
 |---|---|
-| Core visit ratings | Cleanliness: spotless to unusable; smell: fresh to severe; privacy: excellent to poor; wait: none, under 5, 5–10, 10–20, or 20+ minutes |
-| Supplies | Toilet paper, soap, dryer/paper towels, menstrual products |
-| Function | Toilet flushes, sink works, lock works, partly out of order, fully out of order |
-| Access | Public, customer-only, purchase required, paid, code required, ask staff, members-only, unknown |
-| Accessibility | Wheelchair accessible, step-free, accessible stall, grab bars, automatic door, adult changing |
-| Family/configuration | Baby changing, family room, all-gender, single-stall, multiple stalls, urinal-only |
-| Safety/comfort | Well-lit, attendant present, feels safe, stall gaps, roomy stall, hook/shelf |
-| Amenities | Mirror, bidet, sharps disposal |
+| Cleanliness and essentials | Sparkling Clean, Fresh-Smelling, Well Stocked, Great Soap, Paper Towels, Well Maintained |
+| Speed and convenience | No Wait, Short Line, Plenty of Stalls, Easy to Find, Open Late, Free to Use |
+| Privacy and comfort | Very Private, Single-Stall, Strong Locks, Minimal Stall Gaps, Spacious, Great Lighting, Good Ventilation, Hooks and Shelves |
+| Accessibility and inclusion | Gender Neutral, Wheelchair Accessible, Step-Free, Family Restroom, Changing Table, Menstrual Products |
+| Standout features | Touchless Fixtures, Bidet, Luxury Bathroom, Hidden Gem |
+
+This is the complete launch set of 30 tags. The rating flow should initially show a relevant subset of roughly 10–12 and provide a **More tags** action for the full set.
+
+### Rating-gated behavior
+
+1. The user chooses the overall rating/sentiment first.
+2. Only then does the positive tag picker become visible and interactive.
+3. Tags are optional, but every submitted tag must belong to the same `VisitObservation` as the rating.
+4. Removing or deleting the rating also removes its tag endorsements.
+5. Bathroom details may summarize commonly selected tags only from valid, visible ratings and should weight recent endorsements more heavily.
+6. Reports and status corrections remain available independently because they are safety/data-quality actions, not grading tags.
 
 ### Target client contracts
 
-- `BathroomFeature`: a controlled union containing only durable accessibility, configuration, and amenity facts.
-- `ConditionTag`: a controlled union for supplies, function, safety, and other visit observations.
+- `BathroomFeature`: source-backed facts used for discovery and filtering; these remain separate from user grading tags.
+- `RatingTag`: a controlled union containing exactly the 30 approved positive tags above.
 - `WaitBucket`: `none | under_five | five_to_ten | ten_to_twenty | over_twenty`.
 - `OperatingStatus`: `open | closed | partly_out_of_order | out_of_order | unknown`.
 - `VisitVisibility`: `public | friends | private`.
-- `VisitObservation`: bathroom/user IDs, sentiment, 1–5 cleanliness/odor/privacy values, wait bucket, observed access, observed status, condition tags, public note, optional private note, visibility, and timestamp.
+- `VisitObservation`: bathroom/user IDs, required overall sentiment/rating, 1–5 cleanliness/odor/privacy values, wait bucket, observed access/status, optional `ratingTags`, public note, optional private note, visibility, and timestamp.
 - `BathroomSummary`: recency-weighted cleanliness/odor/privacy scores, median wait bucket, review count, community score, confidence, last confirmation, and operating status.
 - Nearby and detail responses: include `distanceMeters`, `summary`, data freshness, and explicit unknown states.
 
@@ -90,7 +99,7 @@ Split durable bathroom facts from visit-specific conditions. Do not keep vague o
 
 ### Shared contract and data gate
 
-- [ ] **P0 · DATA-01 — Split facts from visit observations** — Owner: `@unassigned` · Depends on: none · Done when: TypeScript types and a forward-only Supabase migration implement the target contracts, validate ranges/enums, and migrate existing visit tags without losing data. PR: —
+- [ ] **P0 · DATA-01 — Split facts from rated endorsements** — Owner: `@unassigned` · Depends on: none · Done when: TypeScript types and a forward-only Supabase migration implement the target contracts, restrict `RatingTag` to the approved positive set, require every tag row to reference a rating, and migrate compatible existing visit tags without losing data. PR: —
 - [ ] **P0 · DATA-02 — Build trustworthy bathroom summaries** — Owner: `@unassigned` · Depends on: DATA-01 · Done when: nearby/detail queries return real recency-weighted scores, wait, counts, freshness, confidence, and status instead of hard-coded values. PR: —
 - [ ] **P0 · DATA-03 — Separate public reads from authenticated writes** — Owner: `@unassigned` · Depends on: DATA-01 · Done when: anonymous users can read public bathrooms, summaries, approved photos, and public reviews; only authenticated users can contribute; private notes and non-public visits fail public RLS tests. PR: —
 - [ ] **P0 · DATA-04 — Persist every external result before display** — Owner: `@unassigned` · Depends on: DATA-01 · Done when: Refuge results are upserted/deduplicated to Poopi UUIDs before entering the client, and every displayed result can be reviewed, saved, or reported. PR: —
@@ -108,8 +117,8 @@ Split durable bathroom facts from visit-specific conditions. Do not keep vague o
 ### Details, reviews, and corrections
 
 - [ ] **P0 · REVIEW-01 — Redesign bathroom details around trust** — Owner: `@unassigned` · Depends on: DATA-02, MAP-04 · Done when: details prioritize current status, distance/ETA, directions, access/cost, recent condition summaries, confidence, last confirmation, public reviews, and source attribution. PR: —
-- [ ] **P0 · REVIEW-02 — Build the sub-30-second review flow** — Owner: `@unassigned` · Depends on: DATA-01 · Done when: a signed-in user can submit sentiment, cleanliness, smell, privacy, wait, optional condition tags, visibility, and an optional note with accessible controls and clear validation. PR: —
-- [ ] **P0 · REVIEW-03 — Publish and aggregate safe reviews** — Owner: `@unassigned` · Depends on: DATA-02, DATA-03, REVIEW-02 · Done when: public reviews appear on details and update summaries immediately, friends/private reviews respect visibility, and private notes never leave owner-scoped queries. PR: —
+- [ ] **P0 · REVIEW-02 — Build the sub-30-second review flow** — Owner: `@unassigned` · Depends on: DATA-01 · Done when: a signed-in user must choose an overall rating before the optional positive tag picker appears, can open the complete 30-tag set, and can submit the rating, structured observations, visibility, tags, and optional note with accessible controls and clear validation. PR: —
+- [ ] **P0 · REVIEW-03 — Publish and aggregate safe reviews** — Owner: `@unassigned` · Depends on: DATA-02, DATA-03, REVIEW-02 · Done when: public reviews appear on details and update summaries immediately, commonly selected positive tags are aggregated only from valid ratings, friends/private reviews respect visibility, and private notes never leave owner-scoped queries. PR: —
 - [ ] **P0 · REVIEW-04 — Connect reporting and missing-bathroom flows** — Owner: `@unassigned` · Depends on: DATA-03, DATA-04 · Done when: signed-in users can add a candidate or report closed, out-of-order, unsafe, inaccessible, inaccurate, duplicate, or privacy issues and receive a clear success/error state. PR: —
 - [ ] **P0 · REVIEW-05 — Wire a minimal private save action** — Owner: `@unassigned` · Depends on: DATA-03, DATA-04 · Done when: a signed-in user can save/unsave any bathroom to one private system-created `Saved` collection and the detail button always reflects the persisted state. PR: —
 
@@ -161,7 +170,8 @@ Each PR should:
 
 ### Unit
 
-- Validate feature/condition taxonomies, rating bounds, wait buckets, and visibility values.
+- Validate feature/rating-tag taxonomies, rating bounds, wait buckets, and visibility values.
+- Verify tags cannot be displayed or submitted before an overall rating and cannot survive deletion of their parent rating.
 - Verify recency weighting, Bayesian community score, median wait, confidence, and unknown-state behavior.
 - Verify hard filters precede recommendation ranking and that recommendation ordering is deterministic.
 - Cover Refuge/OSM/user dedupe and external-ID-to-Poopi-UUID persistence.
