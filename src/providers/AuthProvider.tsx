@@ -66,7 +66,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
       }
       setSession(data.session);
       if (data.session && !data.session.user.is_anonymous) {
-        await refreshProfile();
+        try {
+          await refreshProfile();
+        } catch {
+          // OAuth can be configured before the profile schema is ready.
+          // Keep the authenticated session and send the user to profile setup.
+          setProfile(null);
+        }
       }
       setLoading(false);
     }
