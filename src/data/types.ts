@@ -14,31 +14,20 @@ export type AccessType = (typeof ACCESS_TYPES)[number];
 export const FEATURE_TAGS = [
   'wheelchair_accessible',
   'step_free',
+  'accessible_stall',
+  'grab_bars',
+  'automatic_door',
   'baby_changing',
   'adult_changing',
   'family_room',
   'all_gender',
   'single_stall',
-  'menstrual_products',
+  'multiple_stalls',
+  'urinal_only',
   'sharps_disposal',
-  'soap',
-  'dryer_or_towels',
   'hook_or_shelf',
   'mirror',
-  'lock_works',
-  'clean',
-  'smells_good',
-  'stinks',
-  'comfortable',
-  'roomy_stall',
-  'wide_seat',
-  'urinal_only',
   'bidet',
-  'private',
-  'safe',
-  'well_lit',
-  'long_line',
-  'out_of_order',
 ] as const;
 
 export type FeatureTag = (typeof FEATURE_TAGS)[number];
@@ -100,6 +89,16 @@ export const RATING_LABELS = [...POSITIVE_RATING_LABELS, ...NEGATIVE_RATING_LABE
 export type PositiveRatingLabel = (typeof POSITIVE_RATING_LABELS)[number];
 export type NegativeRatingLabel = (typeof NEGATIVE_RATING_LABELS)[number];
 export type RatingLabel = (typeof RATING_LABELS)[number];
+export type RatingTag = RatingLabel;
+
+export const WAIT_BUCKETS = ['none', 'under_five', 'five_to_ten', 'ten_to_twenty', 'over_twenty'] as const;
+export type WaitBucket = (typeof WAIT_BUCKETS)[number];
+
+export const OPERATING_STATUSES = ['open', 'closed', 'partly_out_of_order', 'out_of_order', 'unknown'] as const;
+export type OperatingStatus = (typeof OPERATING_STATUSES)[number];
+
+export const VISIT_VISIBILITIES = ['public', 'friends', 'private'] as const;
+export type VisitVisibility = (typeof VISIT_VISIBILITIES)[number];
 
 export type SourceName =
   | 'osm'
@@ -186,16 +185,41 @@ export interface BathroomFilters {
   highConfidence?: boolean;
 }
 
-export interface Visit {
-  id: string;
+export interface VisitObservation {
   bathroomId: string;
-  userId: string;
   sentiment: Sentiment;
+  cleanlinessRating?: number;
+  odorRating?: number;
+  privacyRating?: number;
+  waitBucket?: WaitBucket;
+  observedAccess?: AccessType;
+  observedStatus?: OperatingStatus;
+  ratingTags: RatingTag[];
   publicNote: string;
   privateNote?: string;
-  tags: RatingLabel[];
+  visibility: VisitVisibility;
+  observedAt: string;
+}
+
+export interface Visit extends VisitObservation {
+  id: string;
+  userId: string;
+  /** @deprecated Use ratingTags. */
+  tags: RatingTag[];
   companionIds: string[];
   createdAt: string;
+}
+
+export interface BathroomSummary {
+  cleanlinessScore?: number;
+  odorScore?: number;
+  privacyScore?: number;
+  medianWait?: WaitBucket;
+  reviewCount: number;
+  communityScore?: number;
+  confidence: number;
+  lastConfirmedAt?: string;
+  operatingStatus: OperatingStatus;
 }
 
 export interface PairwiseComparison {

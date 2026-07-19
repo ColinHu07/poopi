@@ -102,11 +102,7 @@ export default function BathroomDetailScreen() {
           <View style={styles.tags}>
             {bathroom.features.length ? (
               bathroom.features.map((tag) => (
-                <TagChip
-                  key={tag}
-                  label={FEATURE_LABELS[tag]}
-                  tone={tag === 'clean' || tag === 'safe' ? 'good' : 'neutral'}
-                />
+                <TagChip key={tag} label={FEATURE_LABELS[tag]} tone="neutral" />
               ))
             ) : (
               <TagChip label="No tags yet" tone="neutral" />

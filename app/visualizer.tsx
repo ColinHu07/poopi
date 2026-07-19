@@ -29,13 +29,13 @@ const SCENARIOS: Array<{
     id: 'nearby',
     label: 'Open now',
     filters: { openNow: true },
-    preferredFeatures: ['clean', 'safe'],
+    preferredFeatures: ['multiple_stalls', 'hook_or_shelf'],
   },
   {
     id: 'trending',
     label: 'No code',
     filters: { openNow: true, highConfidence: true },
-    preferredFeatures: ['well_lit', 'clean'],
+    preferredFeatures: ['mirror', 'hook_or_shelf'],
   },
   {
     id: 'accessible',
@@ -47,7 +47,7 @@ const SCENARIOS: Array<{
     id: 'family',
     label: 'Baby change',
     filters: { openNow: true, babyChanging: true },
-    preferredFeatures: ['baby_changing', 'family_room', 'clean'],
+    preferredFeatures: ['baby_changing', 'family_room'],
   },
 ];
 

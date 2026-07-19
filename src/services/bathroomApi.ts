@@ -12,8 +12,13 @@ import type {
   SourceRef,
   UserRating,
   Visit,
+  VisitVisibility,
+  WaitBucket,
+  OperatingStatus,
 } from '@/src/data/types';
 import { isRatingLabel } from '@/src/data/ratingLabels';
+import { normalizeBathroomFeatures } from '@/src/data/bathroomFeatures';
+import { isDimensionRating } from '@/src/data/visitObservations';
 import {
   applyEloComparison,
   rankCommunityComparisons,
@@ -315,6 +320,14 @@ export async function logVisit(input: {
   publicNote: string;
   tags: RatingLabel[];
   privateNote?: string;
+  cleanlinessRating?: number;
+  odorRating?: number;
+  privacyRating?: number;
+  waitBucket?: WaitBucket;
+  observedAccess?: AccessType;
+  observedStatus?: OperatingStatus;
+  visibility?: VisitVisibility;
+  observedAt?: string;
 }): Promise<Visit> {
   if (!isUuid(input.bathroomId)) {
     throw new Error('This bathroom needs to be imported into Poopi before it can be logged.');
@@ -329,57 +342,58 @@ export async function logVisit(input: {
   if (!input.tags.every(isRatingLabel)) {
     throw new Error('One or more bathroom labels are not supported.');
   }
+  for (const [name, value] of [
+    ['cleanliness', input.cleanlinessRating],
+    ['odor', input.odorRating],
+    ['privacy', input.privacyRating],
+  ] as const) {
+    if (value !== undefined && !isDimensionRating(value)) {
+      throw new Error(`${name} rating must be a whole number from 1 to 5.`);
+    }
+  }
   const tags = [...new Set(input.tags)];
 
-  const { data, error } = await client
-    .from('visits')
-    .insert({
-      bathroom_id: input.bathroomId,
-      user_id: userData.user.id,
-      sentiment: input.sentiment,
-      public_note: input.publicNote,
-      private_note: input.privateNote,
-    })
-    .select('id, bathroom_id, user_id, sentiment, public_note, private_note, created_at')
-    .single();
+  const observedAt = input.observedAt ?? new Date().toISOString();
+  const visibility = input.visibility ?? 'public';
+  const { data: visitId, error } = await client.rpc('submit_visit_observation', {
+    p_bathroom_id: input.bathroomId,
+    p_sentiment: input.sentiment,
+    p_public_note: input.publicNote,
+    p_private_note: input.privateNote ?? null,
+    p_labels: tags,
+    p_cleanliness_rating: input.cleanlinessRating ?? null,
+    p_odor_rating: input.odorRating ?? null,
+    p_privacy_rating: input.privacyRating ?? null,
+    p_wait_bucket: input.waitBucket ?? null,
+    p_observed_access: input.observedAccess ?? null,
+    p_observed_status: input.observedStatus ?? 'unknown',
+    p_visibility: visibility,
+    p_observed_at: observedAt,
+  });
 
   if (error) {
     throw error;
   }
 
-  if (tags.length) {
-    const { error: tagError } = await client
-      .from('visit_tags')
-      .insert(tags.map((tag) => ({ visit_id: data.id, tag })));
-    if (tagError) {
-      throw tagError;
-    }
-  }
-
-  const { error: ratingError } = await client.from('user_bathroom_ratings').upsert(
-    {
-      user_id: userData.user.id,
-      bathroom_id: input.bathroomId,
-      rating: input.sentiment === 'liked' ? 1550 : input.sentiment === 'fine' ? 1500 : 1450,
-      comparisons: 0,
-      sentiment: input.sentiment,
-    },
-    { onConflict: 'user_id,bathroom_id', ignoreDuplicates: true },
-  );
-  if (ratingError) {
-    throw ratingError;
-  }
-
   return {
-    id: data.id,
-    bathroomId: data.bathroom_id,
-    userId: data.user_id,
-    sentiment: data.sentiment,
-    publicNote: data.public_note,
-    privateNote: data.private_note,
+    id: String(visitId),
+    bathroomId: input.bathroomId,
+    userId: userData.user.id,
+    sentiment: input.sentiment,
+    cleanlinessRating: input.cleanlinessRating,
+    odorRating: input.odorRating,
+    privacyRating: input.privacyRating,
+    waitBucket: input.waitBucket,
+    observedAccess: input.observedAccess,
+    observedStatus: input.observedStatus ?? 'unknown',
+    ratingTags: tags,
+    publicNote: input.publicNote,
+    privateNote: input.privateNote,
+    visibility,
+    observedAt,
     tags,
     companionIds: [],
-    createdAt: data.created_at,
+    createdAt: observedAt,
   };
 }
 
@@ -535,7 +549,9 @@ async function fetchRefugeNearbyBathrooms(input: NearbyBathroomInput): Promise<B
 }
 
 function mapSupabaseBathroom(row: SupabaseBathroomRow): Bathroom {
-  const features = row.features ?? row.bathroom_features?.map((feature) => feature.feature) ?? [];
+  const features = normalizeBathroomFeatures(
+    row.features ?? row.bathroom_features?.map((feature) => feature.feature) ?? [],
+  );
   const sourceRefs =
     row.source_refs ??
     row.bathroom_sources?.map((source) => ({
