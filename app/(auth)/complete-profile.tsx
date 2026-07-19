@@ -7,7 +7,8 @@ import { useAuth } from '@/src/providers/AuthProvider';
 
 export default function CompleteProfileScreen() {
   const { configured, completeProfile, profile, profileComplete, session } = useAuth();
-  const [displayName, setDisplayName] = useState(profile?.displayName ?? '');
+  const googleDisplayName = session?.user.user_metadata?.full_name ?? session?.user.user_metadata?.name;
+  const [displayName, setDisplayName] = useState(profile?.displayName ?? googleDisplayName ?? '');
   const [username, setUsername] = useState(profile?.username ?? '');
   const [phone, setPhone] = useState(profile?.phoneE164 ?? '');
   const [homeCity, setHomeCity] = useState(profile?.homeCity ?? 'New York');
