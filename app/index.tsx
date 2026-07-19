@@ -5,7 +5,7 @@ import { palette } from '@/components/app/tokens';
 import { useAuth } from '@/src/providers/AuthProvider';
 
 export default function EntryScreen() {
-  const { configured, loading, profileComplete, session } = useAuth();
+  const { configured, isAnonymous, loading, profileComplete, session } = useAuth();
 
   if (loading) {
     return (
@@ -19,7 +19,7 @@ export default function EntryScreen() {
     return <Redirect href={'/welcome' as any} />;
   }
 
-  if (!profileComplete) {
+  if (!isAnonymous && !profileComplete) {
     return <Redirect href={'/complete-profile' as any} />;
   }
 

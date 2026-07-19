@@ -24,3 +24,20 @@ export function requireSupabase() {
   }
   return supabase;
 }
+
+export async function getOrCreateRatingUser() {
+  const client = requireSupabase();
+  const { data: userData, error: userError } = await client.auth.getUser();
+  if (userError) {
+    throw userError;
+  }
+  if (userData.user) {
+    return userData.user;
+  }
+
+  const { data, error } = await client.auth.signInAnonymously();
+  if (error || !data.user) {
+    throw error ?? new Error('Unable to create an anonymous rating session.');
+  }
+  return data.user;
+}

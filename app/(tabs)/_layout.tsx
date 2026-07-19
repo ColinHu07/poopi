@@ -21,7 +21,7 @@ function TabIcon({ color, name, fallback }: { color: ColorValue; name: any; fall
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
-  const { configured, loading, profileComplete, session } = useAuth();
+  const { configured, isAnonymous, loading, profileComplete, session } = useAuth();
 
   if (loading) {
     return (
@@ -35,7 +35,7 @@ export default function TabLayout() {
     return <Redirect href={'/welcome' as any} />;
   }
 
-  if (!profileComplete) {
+  if (!isAnonymous && !profileComplete) {
     return <Redirect href={'/complete-profile' as any} />;
   }
 

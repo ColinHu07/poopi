@@ -10,7 +10,8 @@ This repo implements the MVP as an Expo Router app with Supabase auth/data wirin
 - Bathroom detail screen with photos, access facts, tags, notes, provenance, confidence, and scores.
 - Log-visit modal with sentiment seed, tags, note, and privacy/moderation copy.
 - Supabase API facade for nearby search, details, visits, comparisons, reports, lists, feed, and profile.
-- Ranking library with sentiment seeding, Elo comparisons, display score mapping, binary pair selection, Bayesian community score, and recommendation score.
+- Ranking library with personal Elo ordering, weighted community Bradley-Terry aggregation, display score mapping, binary pair selection, and recommendation score.
+- Guest mode uses a persisted anonymous Supabase identity, allowing comparison votes without account-creation friction.
 - Source normalizers for Refuge Restrooms and OSM toilet elements.
 - Dedupe helper using source ids, proximity, normalized names, and normalized addresses.
 - Supabase/PostGIS schema with profiles, RLS policies, user-owned rows, and a nearby bathroom RPC.

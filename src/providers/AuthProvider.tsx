@@ -10,18 +10,20 @@ import {
   upsertProfile,
   type ProfileInput,
 } from '@/src/services/auth';
-import { isSupabaseConfigured, supabase } from '@/src/services/supabase';
+import { getOrCreateRatingUser, isSupabaseConfigured, supabase } from '@/src/services/supabase';
 
 interface AuthContextValue {
   session: Session | null;
   profile: ProfileRecord | null;
   loading: boolean;
   configured: boolean;
+  isAnonymous: boolean;
   profileComplete: boolean;
   signIn: (input: { email: string; password: string }) => Promise<void>;
   signUp: (input: SignupInput) => Promise<{ needsEmailConfirmation: boolean }>;
   signOut: () => Promise<void>;
   completeProfile: (input: ProfileInput) => Promise<void>;
+  continueAsGuest: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
 
@@ -61,7 +63,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         throw error;
       }
       setSession(data.session);
-      if (data.session) {
+      if (data.session && !data.session.user.is_anonymous) {
         await refreshProfile();
       }
       setLoading(false);
@@ -77,7 +79,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
-      if (nextSession) {
+      if (nextSession && !nextSession.user.is_anonymous) {
         refreshProfile().catch(() => setProfile(null));
       } else {
         setProfile(null);
@@ -96,6 +98,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       profile,
       loading,
       configured: isSupabaseConfigured,
+      isAnonymous: Boolean(session?.user.is_anonymous),
       profileComplete: isProfileComplete(profile),
       async signIn(input) {
         const data = await signInWithService(input);
@@ -118,6 +121,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
       async completeProfile(input) {
         const nextProfile = await upsertProfile(input);
         setProfile(nextProfile);
+      },
+      async continueAsGuest() {
+        await getOrCreateRatingUser();
+        const { data } = await supabase!.auth.getSession();
+        setSession(data.session);
+        setProfile(null);
       },
       refreshProfile,
     }),

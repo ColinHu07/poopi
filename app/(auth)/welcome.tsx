@@ -1,13 +1,17 @@
-import { Link, Redirect } from 'expo-router';
+import { Link, Redirect, router } from 'expo-router';
+import { useState } from 'react';
+import { ActivityIndicator } from 'react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { palette } from '@/components/app/tokens';
 import { useAuth } from '@/src/providers/AuthProvider';
 
 export default function WelcomeScreen() {
-  const { configured, loading, profileComplete, session } = useAuth();
+  const { configured, continueAsGuest, isAnonymous, loading, profileComplete, session } = useAuth();
+  const [guestLoading, setGuestLoading] = useState(false);
+  const [guestError, setGuestError] = useState('');
 
-  if (!loading && session && profileComplete) {
+  if (!loading && session && (isAnonymous || profileComplete)) {
     return <Redirect href="/(tabs)" />;
   }
   if (!loading && session && !profileComplete) {
@@ -37,6 +41,24 @@ export default function WelcomeScreen() {
               <Text style={styles.secondaryText}>Log in</Text>
             </Pressable>
           </Link>
+          <Pressable
+            disabled={guestLoading}
+            style={styles.guestButton}
+            onPress={async () => {
+              setGuestLoading(true);
+              setGuestError('');
+              try {
+                await continueAsGuest();
+                router.replace('/(tabs)');
+              } catch (error) {
+                setGuestError(error instanceof Error ? error.message : 'Unable to continue as guest.');
+              } finally {
+                setGuestLoading(false);
+              }
+            }}>
+            {guestLoading ? <ActivityIndicator color={palette.jade} /> : <Text style={styles.guestText}>Continue as guest</Text>}
+          </Pressable>
+          {guestError ? <Text style={styles.guestError}>{guestError}</Text> : null}
         </View>
       ) : (
         <View style={styles.setupCard}>
@@ -122,6 +144,22 @@ const styles = StyleSheet.create({
     color: palette.ink,
     fontSize: 16,
     fontWeight: '900',
+  },
+  guestButton: {
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  guestText: {
+    color: palette.jade,
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  guestError: {
+    color: palette.coral,
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   setupCard: {
     borderRadius: 8,

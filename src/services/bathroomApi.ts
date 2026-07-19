@@ -12,10 +12,16 @@ import type {
   UserRating,
   Visit,
 } from '@/src/data/types';
-import { applyEloComparison, recommendationScore, scoreMapFromRatings, sortRatings } from '@/src/lib/ranking';
+import {
+  applyEloComparison,
+  rankCommunityComparisons,
+  recommendationScore,
+  scoreMapFromRatings,
+  sortRatings,
+} from '@/src/lib/ranking';
 import { getCurrentProfile } from '@/src/services/auth';
 import { normalizeRefugeRestroom, type RefugeRestroom } from '@/src/services/sourceNormalizers';
-import { isSupabaseConfigured, requireSupabase, supabase } from '@/src/services/supabase';
+import { getOrCreateRatingUser, isSupabaseConfigured, requireSupabase, supabase } from '@/src/services/supabase';
 
 export const DEFAULT_MAP_CENTER = {
   latitude: 40.7536,
@@ -97,6 +103,8 @@ export async function getNearbyBathrooms(input: NearbyBathroomInput): Promise<Ba
     const refugeBathrooms = await fetchRefugeNearbyBathrooms(input).catch(() => []);
     bathrooms = mergeBathrooms(bathrooms, refugeBathrooms);
   }
+
+  bathrooms = await applyCommunityComparisonScores(bathrooms);
 
   return bathrooms
     .map((bathroom) => ({
@@ -364,27 +372,31 @@ export async function recordComparison(winnerId: string, loserId: string): Promi
     throw new Error('Both bathrooms need to be imported into Poopi before they can be compared.');
   }
 
+  const client = requireSupabase();
+  const user = await getOrCreateRatingUser();
+
+  const { error: comparisonError } = await client.from('pairwise_comparisons').upsert(
+    {
+      user_id: user.id,
+      winner_bathroom_id: winnerId,
+      loser_bathroom_id: loserId,
+    },
+    { onConflict: 'user_id,pair_low_bathroom_id,pair_high_bathroom_id' },
+  );
+  if (comparisonError) {
+    throw comparisonError;
+  }
+
   const ranked = await getRankedBathrooms();
   const ratings = applyEloComparison(
     ranked.map((item) => item.rating),
     winnerId,
     loserId,
   );
-  const client = requireSupabase();
-  const { data: userData, error: userError } = await client.auth.getUser();
-  if (userError || !userData.user) {
-    throw userError ?? new Error('You need to be signed in to compare bathrooms.');
-  }
-
-  await client.from('pairwise_comparisons').insert({
-    user_id: userData.user.id,
-    winner_bathroom_id: winnerId,
-    loser_bathroom_id: loserId,
-  });
 
   await client.from('user_bathroom_ratings').upsert(
     ratings.map((rating) => ({
-      user_id: userData.user!.id,
+      user_id: user.id,
       bathroom_id: rating.bathroomId,
       rating: rating.rating,
       comparisons: rating.comparisons,
@@ -394,6 +406,43 @@ export async function recordComparison(winnerId: string, loserId: string): Promi
   );
 
   return ratings;
+}
+
+async function applyCommunityComparisonScores(bathrooms: Bathroom[]): Promise<Bathroom[]> {
+  if (!isSupabaseConfigured || !supabase) {
+    return bathrooms;
+  }
+
+  if (bathrooms.filter(({ id }) => isUuid(id)).length < 2) {
+    return bathrooms;
+  }
+
+  const { data, error } = await supabase.rpc('community_comparison_votes');
+  if (error || !data?.length) {
+    return bathrooms;
+  }
+
+  const ranked = rankCommunityComparisons(
+    data.map((row: any) => ({
+      winnerId: row.winner_bathroom_id,
+      loserId: row.loser_bathroom_id,
+      voterComparisonCount: Number(row.voter_comparison_count),
+    })),
+  );
+  const scores = new Map(ranked.map((item) => [item.bathroomId, item]));
+
+  return bathrooms.map((bathroom) => {
+    const community = scores.get(bathroom.id);
+    return community
+      ? {
+          ...bathroom,
+          scores: {
+            ...bathroom.scores,
+            community: community.score,
+          },
+        }
+      : bathroom;
+  });
 }
 
 export async function createReport(bathroomId: string, reason: ReportReason): Promise<void> {

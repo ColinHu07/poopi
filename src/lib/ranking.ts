@@ -90,6 +90,89 @@ export function communityScore(scores: number[], prior = 6, priorWeight = 5): nu
   return roundToTenth((total + prior * priorWeight) / (scores.length + priorWeight));
 }
 
+export interface CommunityComparison {
+  winnerId: string;
+  loserId: string;
+  voterComparisonCount: number;
+}
+
+export interface CommunityRank {
+  bathroomId: string;
+  score: number;
+  confidence: number;
+  comparisonWeight: number;
+}
+
+/**
+ * Gives experienced contributors modestly more influence without allowing a
+ * power user to dominate. Weight grows with the square root of history and is
+ * capped at 2x a new contributor.
+ */
+export function voterWeight(comparisonCount: number): number {
+  const boundedCount = clamp(Math.max(0, comparisonCount), 0, 100);
+  return 1 + Math.sqrt(boundedCount / 100);
+}
+
+/**
+ * Fits a regularized Bradley-Terry model to weighted head-to-head votes, then
+ * linearly maps the resulting community order onto a 1–10 display scale.
+ *
+ * The Gaussian-style regularization keeps sparse or disconnected comparison
+ * graphs near neutral and makes the result deterministic and finite.
+ */
+export function rankCommunityComparisons(comparisons: CommunityComparison[]): CommunityRank[] {
+  const bathroomIds = [...new Set(comparisons.flatMap(({ winnerId, loserId }) => [winnerId, loserId]))].sort();
+  if (bathroomIds.length === 0) {
+    return [];
+  }
+
+  const strengths = Object.fromEntries(bathroomIds.map((id) => [id, 0])) as Record<string, number>;
+  const comparisonWeights = Object.fromEntries(bathroomIds.map((id) => [id, 0])) as Record<string, number>;
+  const weighted = comparisons
+    .filter(({ winnerId, loserId }) => winnerId !== loserId)
+    .map((comparison) => ({ ...comparison, weight: voterWeight(comparison.voterComparisonCount) }));
+
+  for (const comparison of weighted) {
+    comparisonWeights[comparison.winnerId] += comparison.weight;
+    comparisonWeights[comparison.loserId] += comparison.weight;
+  }
+
+  const regularization = 1;
+  for (let iteration = 0; iteration < 200; iteration += 1) {
+    const gradients = Object.fromEntries(bathroomIds.map((id) => [id, -regularization * strengths[id]])) as Record<
+      string,
+      number
+    >;
+
+    for (const { loserId, weight, winnerId } of weighted) {
+      const winProbability = 1 / (1 + Math.exp(strengths[loserId] - strengths[winnerId]));
+      const residual = weight * (1 - winProbability);
+      gradients[winnerId] += residual;
+      gradients[loserId] -= residual;
+    }
+
+    for (const id of bathroomIds) {
+      strengths[id] += 0.15 * (gradients[id] / (comparisonWeights[id] + regularization));
+    }
+
+    const mean = bathroomIds.reduce((sum, id) => sum + strengths[id], 0) / bathroomIds.length;
+    for (const id of bathroomIds) {
+      strengths[id] -= mean;
+    }
+  }
+
+  const orderedIds = [...bathroomIds].sort(
+    (a, b) => strengths[b] - strengths[a] || comparisonWeights[b] - comparisonWeights[a] || a.localeCompare(b),
+  );
+
+  return orderedIds.map((bathroomId, index) => ({
+    bathroomId,
+    score: orderedIds.length === 1 ? 6 : roundToTenth(10 - (9 * index) / (orderedIds.length - 1)),
+    confidence: roundToHundredth(1 - Math.exp(-comparisonWeights[bathroomId] / 5)),
+    comparisonWeight: roundToHundredth(comparisonWeights[bathroomId]),
+  }));
+}
+
 export function selectBinaryInsertionPair(
   newBathroomId: string,
   rankedIds: string[],

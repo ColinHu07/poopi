@@ -24,7 +24,7 @@
 - Five authenticated tabs: Map, Rank, Feed, Lists, and Profile.
 - Bathroom details with access information, features, source provenance, confidence, and photos/placeholders.
 - Visit logging with sentiment, quick tags, and a public note.
-- Personal Elo-style pairwise rankings and display-score utilities.
+- Personal Elo-style rankings plus weighted community Bradley-Terry aggregation from pairwise votes.
 - Refuge Restrooms import/fallback, OSM and Refuge normalizers, deduplication helpers, and a fixture-backed visualizer.
 - `npm run typecheck` passes and all 12 current automated tests pass.
 
@@ -33,7 +33,7 @@
 - Save and Report buttons on bathroom details are not connected.
 - Lists can be read but cannot be created or populated; returned lists do not hydrate their bathrooms.
 - Follows and feed tables exist, but there is no friend discovery and visits do not produce a followed-friends feed.
-- The nearby RPC returns a hard-coded community score of `6.0`; visit tags do not update bathroom summaries.
+- Structured visit observations do not update bathroom summaries, and community comparison aggregation still needs a server-side cache for scale.
 - Visits are readable only by their authors, so public feedback is not actually shareable.
 - Free-form opening hours are treated as open unless the string is literally `closed`.
 - Missing confirmation timestamps are replaced with the current time, making unconfirmed data look fresh.
@@ -89,7 +89,9 @@ This is the complete launch set of 30 tags. The rating flow should initially sho
 ### Aggregation and recommendation defaults
 
 - Map sentiment to `liked = 9`, `fine = 6`, and `disliked = 3` for community aggregation.
-- Compute community score with a neutral prior of `6`, prior weight `5`, and a 90-day recency half-life.
+- Compute community preference from the global pairwise comparison graph with a regularized Bradley-Terry model.
+- Give established contributors modest additional weight using `1 + sqrt(min(history, 100) / 100)`, capped at `2x`; enforce one mutable vote per identity and bathroom pair.
+- Interpolate the resulting global order onto `1.0–10.0`; expose comparison volume/confidence so sparse scores are not presented as settled consensus.
 - Compute dimension scores from timestamped 1–5 observations using the same recency weighting; show no score when there are no observations.
 - Compute median wait from public observations in the latest 90 days; otherwise display `Unknown`.
 - Derive confidence from source confidence, independent confirmations, contradictions, review volume, and freshness. Confidence must not imply that a bathroom is open.
@@ -101,14 +103,14 @@ This is the complete launch set of 30 tags. The rating flow should initially sho
 
 - [ ] **P0 · DATA-01 — Split facts from rated endorsements** — Owner: `@unassigned` · Depends on: none · Done when: TypeScript types and a forward-only Supabase migration implement the target contracts, restrict `RatingTag` to the approved positive set, require every tag row to reference a rating, and migrate compatible existing visit tags without losing data. PR: —
 - [ ] **P0 · DATA-02 — Build trustworthy bathroom summaries** — Owner: `@unassigned` · Depends on: DATA-01 · Done when: nearby/detail queries return real recency-weighted scores, wait, counts, freshness, confidence, and status instead of hard-coded values. PR: —
-- [ ] **P0 · DATA-03 — Separate public reads from authenticated writes** — Owner: `@unassigned` · Depends on: DATA-01 · Done when: anonymous users can read public bathrooms, summaries, approved photos, and public reviews; only authenticated users can contribute; private notes and non-public visits fail public RLS tests. PR: —
+- [ ] **P0 · DATA-03 — Separate public reads from identity-bound writes** — Owner: `@unassigned` · Depends on: DATA-01 · Done when: guests can read public data and submit rate-limited comparisons through persistent anonymous identities; account-only and private writes require permanent users; private notes and non-public visits fail public RLS tests. PR: —
 - [ ] **P0 · DATA-04 — Persist every external result before display** — Owner: `@unassigned` · Depends on: DATA-01 · Done when: Refuge results are upserted/deduplicated to Poopi UUIDs before entering the client, and every displayed result can be reviewed, saved, or reported. PR: —
 - [ ] **P0 · DATA-05 — Add OSM ingestion** — Owner: `@unassigned` · Depends on: DATA-04 · Done when: the existing OSM normalizer feeds the same import pipeline, source IDs are preserved, and OSM/Refuge/user duplicates resolve to one bathroom. PR: —
 - [ ] **P0 · DATA-06 — Remove false data certainty** — Owner: `@unassigned` · Depends on: DATA-01, DATA-02 · Done when: unknown hours never produce `isOpenNow = true`, missing confirmations stay missing, free filtering uses cost/access facts correctly, and the nearby RPC enforces a real radius. PR: —
 
 ### Map and discovery
 
-- [ ] **P0 · MAP-01 — Enable guest discovery** — Owner: `@unassigned` · Depends on: DATA-03 · Done when: a signed-out user can open Map, grant/deny location, search, and inspect details while contribution/save actions present sign-in at the point of action. PR: —
+- [ ] **P0 · MAP-01 — Enable guest discovery** — Owner: `@unassigned` · Depends on: DATA-03 · Done when: a user can continue as a guest, open Map, grant/deny location, search, inspect details, and submit comparisons without creating a profile; account-only actions present sign-in at the point of action. PR: —
 - [ ] **P0 · MAP-02 — Add destination and viewport search** — Owner: `@unassigned` · Depends on: DATA-04 · Done when: users can search an address/place, recenter, pan, and explicitly run “Search this area” without the camera unexpectedly snapping back. PR: —
 - [ ] **P0 · MAP-03 — Build an intuitive map/list result surface** — Owner: `@unassigned` · Depends on: DATA-02, MAP-02 · Done when: clustered markers and a synchronized bottom-sheet list show score/status, distance, access, freshness, and selection consistently. PR: —
 - [ ] **P0 · MAP-04 — Add routing and ETA** — Owner: `@unassigned` · Depends on: MAP-03 · Done when: each result/detail displays distance and walking ETA and can open Apple Maps directions to the correct coordinates. PR: —
@@ -134,7 +136,7 @@ This is the complete launch set of 30 tags. The rating flow should initially sho
 - [ ] **P1 · SOCIAL-02 — Add public-safe profiles and follows** — Owner: `@unassigned` · Depends on: DATA-03 · Done when: users can search profiles, follow/unfollow, and expose only display name, handle, avatar, and opted-in contribution data. PR: —
 - [ ] **P1 · SOCIAL-03 — Build a real friends feed** — Owner: `@unassigned` · Depends on: SOCIAL-02, REVIEW-03 · Done when: opted-in reviews, rankings, confirmations, and public/friends lists create feed events visible only to the intended audience. PR: —
 - [ ] **P1 · SOCIAL-04 — Separate personal, friends, and community scores** — Owner: `@unassigned` · Depends on: SOCIAL-02, REVIEW-03 · Done when: detail and ranking screens label each score, provide sample/confidence context, and never substitute one audience’s score for another. PR: —
-- [ ] **P1 · SOCIAL-05 — Finish meaningful pairwise ranking** — Owner: `@unassigned` · Depends on: REVIEW-02 · Done when: comparison selection uses unresolved binary-insertion pairs, avoids repeated questions, and updates personal ordering deterministically. PR: —
+- [ ] **P1 · SOCIAL-05 — Finish meaningful pairwise ranking** — Owner: `@unassigned` · Depends on: REVIEW-02 · Done when: pair selection avoids repeated questions, every identity has one mutable opinion per pair, the weighted community Bradley-Terry order updates deterministically, interpolated scores include confidence context, and personal ordering remains a separately labeled optional view. PR: —
 - [ ] **P1 · SOCIAL-06 — Expand profile history and editing** — Owner: `@unassigned` · Depends on: SOCIAL-04 · Done when: users can view/edit their visits, see favorite traits and contribution counts, and remove their content. PR: —
 - [ ] **P1 · SAFETY-01 — Implement moderated photo uploads** — Owner: `@unassigned` · Depends on: REVIEW-03 · Done when: empty-room/signage images upload to private storage, strip EXIF, enter moderation, use resolvable URLs, and support reporting/removal. PR: —
 - [ ] **P1 · SAFETY-02 — Finish visit privacy controls** — Owner: `@unassigned` · Depends on: SOCIAL-02, REVIEW-03 · Done when: public, friends, and private visits behave consistently across details, feed, profile, exports, and deletion. PR: —
@@ -172,7 +174,7 @@ Each PR should:
 
 - Validate feature/rating-tag taxonomies, rating bounds, wait buckets, and visibility values.
 - Verify tags cannot be displayed or submitted before an overall rating and cannot survive deletion of their parent rating.
-- Verify recency weighting, Bayesian community score, median wait, confidence, and unknown-state behavior.
+- Verify weighted Bradley-Terry convergence, contributor-weight caps, one-vote-per-pair behavior, interpolation, median wait, confidence, and unknown-state behavior.
 - Verify hard filters precede recommendation ranking and that recommendation ordering is deterministic.
 - Cover Refuge/OSM/user dedupe and external-ID-to-Poopi-UUID persistence.
 

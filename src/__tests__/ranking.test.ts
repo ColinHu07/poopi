@@ -7,7 +7,9 @@ import {
   displayScore,
   expectedScore,
   kFactor,
+  rankCommunityComparisons,
   selectBinaryInsertionPair,
+  voterWeight,
 } from '@/src/lib/ranking';
 import type { PairwiseComparison, UserRating } from '@/src/data/types';
 
@@ -42,6 +44,47 @@ test('displayScore maps rank into a bounded 0 to 10 display scale', () => {
 test('communityScore uses a Bayesian prior', () => {
   assert.equal(communityScore([], 6, 5), 6);
   assert.equal(communityScore([10], 6, 5), 6.7);
+});
+
+test('voterWeight grows slowly with history and caps expert influence at 2x', () => {
+  assert.equal(voterWeight(0), 1);
+  assert.equal(voterWeight(25), 1.5);
+  assert.equal(voterWeight(100), 2);
+  assert.equal(voterWeight(10_000), 2);
+});
+
+test('community ranking pools comparisons and interpolates the resulting order', () => {
+  const ranked = rankCommunityComparisons([
+    { winnerId: 'a', loserId: 'b', voterComparisonCount: 4 },
+    { winnerId: 'a', loserId: 'c', voterComparisonCount: 9 },
+    { winnerId: 'b', loserId: 'c', voterComparisonCount: 16 },
+  ]);
+
+  assert.deepEqual(
+    ranked.map(({ bathroomId, score }) => ({ bathroomId, score })),
+    [
+      { bathroomId: 'a', score: 10 },
+      { bathroomId: 'b', score: 5.5 },
+      { bathroomId: 'c', score: 1 },
+    ],
+  );
+  assert.ok(ranked.every(({ confidence }) => confidence > 0 && confidence < 1));
+});
+
+test('an experienced voter breaks a one-to-one disagreement without dominating a majority', () => {
+  const expertWins = rankCommunityComparisons([
+    { winnerId: 'a', loserId: 'b', voterComparisonCount: 100 },
+    { winnerId: 'b', loserId: 'a', voterComparisonCount: 0 },
+  ]);
+  assert.equal(expertWins[0].bathroomId, 'a');
+
+  const majorityWins = rankCommunityComparisons([
+    { winnerId: 'a', loserId: 'b', voterComparisonCount: 100 },
+    { winnerId: 'b', loserId: 'a', voterComparisonCount: 0 },
+    { winnerId: 'b', loserId: 'a', voterComparisonCount: 0 },
+    { winnerId: 'b', loserId: 'a', voterComparisonCount: 0 },
+  ]);
+  assert.equal(majorityWins[0].bathroomId, 'b');
 });
 
 test('selectBinaryInsertionPair picks the median unasked candidate and stops after five comparisons', () => {
