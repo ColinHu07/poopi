@@ -40,7 +40,7 @@
     "ios": "./node_modules/.bin/expo start --ios",
     "ios:pods": "PATH=\"$HOME/.gem/ruby/2.6.0/bin:$PATH\" RUBYOPT=\"-I./scripts -rruby-compat\" DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer RCT_USE_PREBUILT_RNCORE=0 RCT_USE_RN_DEP=0 pod install --project-directory=ios",
     "web": "./node_modules/.bin/expo start --web",
-    "build:web": "./node_modules/.bin/expo export --platform web",
+    "build:web": "./node_modules/.bin/expo export --platform web && node scripts/prepare-sites-build.mjs",
     "typecheck": "./node_modules/.bin/tsc --noEmit",
     "test": "./node_modules/.bin/tsx --test \"src/**/*.test.ts\""
   },
