@@ -15,10 +15,12 @@ import type {
   VisitVisibility,
   WaitBucket,
   OperatingStatus,
+  FreshnessState,
 } from '@/src/data/types';
 import { isRatingLabel } from '@/src/data/ratingLabels';
 import { normalizeBathroomFeatures } from '@/src/data/bathroomFeatures';
-import { isDimensionRating } from '@/src/data/visitObservations';
+import { isDimensionRating, isOperatingStatus, isWaitBucket } from '@/src/data/visitObservations';
+import { freshnessState } from '@/src/lib/bathroomSummary';
 import {
   applyEloComparison,
   rankCommunityComparisons,
@@ -61,6 +63,7 @@ type SupabaseBathroomRow = {
   city: string;
   latitude?: number;
   longitude?: number;
+  distance_meters?: number | null;
   access: AccessType;
   price_note: string;
   opening_hours: string;
@@ -71,6 +74,14 @@ type SupabaseBathroomRow = {
   source_refs?: SourceRef[];
   community_score?: number | null;
   community_review_count?: number;
+  cleanliness_score?: number | null;
+  odor_score?: number | null;
+  privacy_score?: number | null;
+  median_wait?: string | null;
+  summary_confidence?: number | null;
+  summary_last_confirmed_at?: string | null;
+  operating_status?: string | null;
+  freshness?: FreshnessState | null;
   recommendation?: number;
   bathroom_features?: Array<{ feature: FeatureTag }>;
   bathroom_sources?: Array<{
@@ -152,7 +163,11 @@ export async function getBathroomById(id: string): Promise<Bathroom | undefined>
     return undefined;
   }
 
-  return cacheBathroom(mapSupabaseBathroom(data as unknown as SupabaseBathroomRow));
+  const { data: summaryRows } = await supabase.rpc('bathroom_summary', { p_bathroom_id: id });
+  const summary = Array.isArray(summaryRows) ? summaryRows[0] : undefined;
+  return cacheBathroom(
+    mapSupabaseBathroom({ ...(data as unknown as SupabaseBathroomRow), ...(summary ?? {}) }),
+  );
 }
 
 export async function getRankedBathrooms(): Promise<
@@ -469,8 +484,16 @@ async function applyCommunityComparisonScores(bathrooms: Bathroom[]): Promise<Ba
           scores: {
             ...bathroom.scores,
             community: community.score,
+            communityReviewCount: Math.max(
+              bathroom.scores.communityReviewCount ?? 0,
+              Math.max(1, Math.round(community.comparisonWeight)),
+            ),
+            confidence: community.confidence,
           },
-          communityReviewCount: Math.max(1, Math.round(community.comparisonWeight)),
+          summary: {
+            ...bathroom.summary,
+            communityScore: community.score,
+          },
         }
       : bathroom;
   });
@@ -565,6 +588,15 @@ function mapSupabaseBathroom(row: SupabaseBathroomRow): Bathroom {
     })) ??
     [];
 
+  const lastConfirmedAt = row.summary_last_confirmed_at ?? row.last_confirmed_at ?? undefined;
+  const operatingStatus: OperatingStatus =
+    row.operating_status && isOperatingStatus(row.operating_status) ? row.operating_status : 'unknown';
+  const medianWait = row.median_wait && isWaitBucket(row.median_wait) ? row.median_wait : undefined;
+  const freshness = row.freshness ?? freshnessState(lastConfirmedAt);
+  const summaryConfidence = Number(row.summary_confidence ?? row.confidence ?? 0);
+  const reviewCount = Number(row.community_review_count ?? 0);
+  const communityScore = row.community_score == null ? undefined : Number(row.community_score);
+
   return {
     id: row.id,
     name: row.name,
@@ -574,10 +606,11 @@ function mapSupabaseBathroom(row: SupabaseBathroomRow): Bathroom {
     city: row.city,
     latitude: Number(row.latitude ?? DEFAULT_MAP_CENTER.latitude),
     longitude: Number(row.longitude ?? DEFAULT_MAP_CENTER.longitude),
+    distanceMeters: row.distance_meters == null ? undefined : Number(row.distance_meters),
     access: row.access,
     priceNote: row.price_note,
     openingHours: row.opening_hours,
-    isOpenNow: row.opening_hours.toLowerCase() !== 'closed',
+    isOpenNow: operatingStatus === 'open',
     confidence: Number(row.confidence),
     features,
     directionsNote: row.directions_note,
@@ -592,14 +625,26 @@ function mapSupabaseBathroom(row: SupabaseBathroomRow): Bathroom {
         }))
       : [],
     reportsSummary: {},
+    summary: {
+      cleanlinessScore: row.cleanliness_score == null ? undefined : Number(row.cleanliness_score),
+      odorScore: row.odor_score == null ? undefined : Number(row.odor_score),
+      privacyScore: row.privacy_score == null ? undefined : Number(row.privacy_score),
+      medianWait,
+      reviewCount,
+      communityScore,
+      confidence: summaryConfidence,
+      lastConfirmedAt,
+      operatingStatus,
+      freshness,
+    },
     scores: {
-      community: Number(row.community_score ?? 6),
-      communityReviewCount: Number(row.community_review_count ?? 0),
-      confidence: Number(row.confidence),
+      community: communityScore ?? 0,
+      communityReviewCount: reviewCount,
+      confidence: summaryConfidence,
       recommendation: Number(row.recommendation ?? 0.5),
     },
     userStatus: 'unvisited',
-    lastConfirmedAt: row.last_confirmed_at ?? new Date().toISOString(),
+    lastConfirmedAt,
   };
 }
 

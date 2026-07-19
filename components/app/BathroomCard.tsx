@@ -5,6 +5,7 @@ import { BathroomPhoto } from './BathroomPhoto';
 import { ACCESS_LABELS, FEATURE_LABELS, TagChip } from './TagChip';
 import { palette, shadow } from './tokens';
 import type { Bathroom } from '@/src/data/types';
+import { STATUS_LABELS, WAIT_LABELS } from '@/src/lib/bathroomSummary';
 
 interface BathroomCardProps {
   bathroom: Bathroom;
@@ -27,6 +28,11 @@ export function BathroomCard({ bathroom, compact, onPress }: BathroomCardProps) 
         </View>
         <Text style={styles.meta} numberOfLines={1}>
           {bathroom.neighborhood} · {ACCESS_LABELS[bathroom.access]} · {bathroom.priceNote}
+        </Text>
+        <Text style={styles.conditions} numberOfLines={1}>
+          {STATUS_LABELS[bathroom.summary.operatingStatus]} ·{' '}
+          {bathroom.summary.medianWait ? WAIT_LABELS[bathroom.summary.medianWait] : 'Wait unknown'} ·{' '}
+          {bathroom.summary.reviewCount} {bathroom.summary.reviewCount === 1 ? 'review' : 'reviews'}
         </Text>
         <View style={styles.tagRow}>
           {primaryTags.map((tag) => (
@@ -123,6 +129,11 @@ const styles = StyleSheet.create({
     color: palette.muted,
     fontSize: 13,
     fontWeight: '700',
+  },
+  conditions: {
+    color: palette.ink,
+    fontSize: 12,
+    fontWeight: '800',
   },
   tagRow: {
     flexDirection: 'row',
