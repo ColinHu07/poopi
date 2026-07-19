@@ -64,7 +64,8 @@ type SupabaseBathroomRow = {
   last_confirmed_at: string | null;
   features?: FeatureTag[];
   source_refs?: SourceRef[];
-  community_score?: number;
+  community_score?: number | null;
+  community_review_count?: number;
   recommendation?: number;
   bathroom_features?: Array<{ feature: FeatureTag }>;
   bathroom_sources?: Array<{
@@ -572,25 +573,16 @@ function mapSupabaseBathroom(row: SupabaseBathroomRow): Bathroom {
           attribution: 'User submitted',
           moderationStatus: photo.moderation_status,
         }))
-      : [placeholderPhoto(row.id)],
+      : [],
     reportsSummary: {},
     scores: {
       community: Number(row.community_score ?? 6),
+      communityReviewCount: Number(row.community_review_count ?? 0),
       confidence: Number(row.confidence),
       recommendation: Number(row.recommendation ?? 0.5),
     },
     userStatus: 'unvisited',
     lastConfirmedAt: row.last_confirmed_at ?? new Date().toISOString(),
-  };
-}
-
-function placeholderPhoto(id: string): BathroomPhoto {
-  return {
-    id: `placeholder-${id}`,
-    url: 'https://images.unsplash.com/photo-1584622781564-1d987f7333c1?auto=format&fit=crop&w=1000&q=80',
-    alt: 'Restroom sign placeholder',
-    attribution: 'Unsplash placeholder',
-    moderationStatus: 'approved',
   };
 }
 

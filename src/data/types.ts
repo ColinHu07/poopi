@@ -145,6 +145,7 @@ export interface ScoreBundle {
   personal?: number;
   friends?: number;
   community: number;
+  communityReviewCount?: number;
   confidence: number;
   recommendation: number;
 }

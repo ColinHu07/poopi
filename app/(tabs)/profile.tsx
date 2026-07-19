@@ -33,9 +33,8 @@ export default function ProfileScreen() {
 
   return (
     <Screen
-      kicker={profile?.handle ?? '@new'}
-      title={profile?.displayName ?? 'Profile'}
-      right={<TagChip label={profile?.city ?? 'New York'} tone="good" />}>
+      kicker="Your profile"
+      title={profile?.displayName ? `@${profile.displayName}` : 'Profile'}>
       {loading || !profile ? (
         <View style={styles.panel}>
           <ActivityIndicator color={palette.jade} />

@@ -1,6 +1,7 @@
 import { Link } from 'expo-router';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { BathroomPhoto } from './BathroomPhoto';
 import { ACCESS_LABELS, FEATURE_LABELS, TagChip } from './TagChip';
 import { palette, shadow } from './tokens';
 import type { Bathroom } from '@/src/data/types';
@@ -13,15 +14,16 @@ interface BathroomCardProps {
 
 export function BathroomCard({ bathroom, compact, onPress }: BathroomCardProps) {
   const primaryTags = bathroom.features.slice(0, compact ? 2 : 4);
+  const hasCommunityScore = (bathroom.scores.communityReviewCount ?? 0) > 0;
   const content = (
     <>
-      <Image source={{ uri: bathroom.photos[0]?.url }} style={styles.image} />
+      <BathroomPhoto compact={Boolean(compact)} photo={bathroom.photos[0]} style={styles.image} />
       <View style={styles.body}>
         <View style={styles.topLine}>
           <Text style={styles.name} numberOfLines={1}>
             {bathroom.name}
           </Text>
-          <Text style={styles.score}>{bathroom.scores.community.toFixed(1)}</Text>
+          {hasCommunityScore ? <Text style={styles.score}>{bathroom.scores.community.toFixed(1)}</Text> : null}
         </View>
         <Text style={styles.meta} numberOfLines={1}>
           {bathroom.neighborhood} · {ACCESS_LABELS[bathroom.access]} · {bathroom.priceNote}
@@ -44,7 +46,11 @@ export function BathroomCard({ bathroom, compact, onPress }: BathroomCardProps) 
     return (
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${bathroom.name}, community score ${bathroom.scores.community.toFixed(1)}`}
+        accessibilityLabel={
+          hasCommunityScore
+            ? `${bathroom.name}, community score ${bathroom.scores.community.toFixed(1)}`
+            : bathroom.name
+        }
         onPress={onPress}
         style={({ pressed }) => [styles.card, compact && styles.compact, pressed && styles.pressed]}>
         {content}

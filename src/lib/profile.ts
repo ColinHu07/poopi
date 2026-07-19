@@ -1,5 +1,8 @@
 export interface ProfileRecord {
   id: string;
+  firstName: string;
+  lastName: string;
+  dateOfBirth: string;
   displayName: string;
   username: string;
   phoneE164: string | null;
@@ -9,9 +12,10 @@ export interface ProfileRecord {
 export interface SignupInput {
   email: string;
   password: string;
+  firstName: string;
+  lastName: string;
+  dateOfBirth: string;
   displayName: string;
-  username: string;
-  phone?: string;
 }
 
 export interface SignupValidation {
@@ -22,6 +26,8 @@ export interface SignupValidation {
 export function normalizeUsername(username: string): string {
   return username.trim().replace(/^@+/, '').toLowerCase();
 }
+
+export const normalizeDisplayName = normalizeUsername;
 
 export function normalizePhoneE164(phone?: string): string | null {
   const trimmed = phone?.trim();
@@ -47,7 +53,7 @@ export function normalizePhoneE164(phone?: string): string | null {
 
 export function validateSignupInput(input: SignupInput): SignupValidation {
   const errors: SignupValidation['errors'] = {};
-  const username = normalizeUsername(input.username);
+  const displayName = normalizeDisplayName(input.displayName);
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())) {
     errors.email = 'Enter a valid email.';
@@ -55,19 +61,43 @@ export function validateSignupInput(input: SignupInput): SignupValidation {
   if (input.password.length < 8) {
     errors.password = 'Use at least 8 characters.';
   }
-  if (input.displayName.trim().length < 2) {
-    errors.displayName = 'Add your name.';
+  if (input.firstName.trim().length < 1 || input.firstName.trim().length > 50) {
+    errors.firstName = 'Enter your first name.';
   }
-  if (!/^[a-z0-9_]{3,24}$/.test(username)) {
-    errors.username = 'Use 3-24 letters, numbers, or underscores.';
+  if (input.lastName.trim().length < 1 || input.lastName.trim().length > 50) {
+    errors.lastName = 'Enter your last name.';
   }
-  if (input.phone?.trim() && !normalizePhoneE164(input.phone)) {
-    errors.phone = 'Use a valid phone number.';
+  if (!isValidDateOfBirth(input.dateOfBirth)) {
+    errors.dateOfBirth = 'Enter a valid date of birth as YYYY-MM-DD.';
+  }
+  if (!/^[a-z0-9_]{3,24}$/.test(displayName)) {
+    errors.displayName = 'Use 3-24 letters, numbers, or underscores.';
   }
 
   return { valid: Object.keys(errors).length === 0, errors };
 }
 
 export function isProfileComplete(profile: Partial<ProfileRecord> | null | undefined): boolean {
-  return Boolean(profile?.displayName?.trim() && profile?.username?.trim());
+  return Boolean(
+    profile?.firstName?.trim() &&
+      profile?.lastName?.trim() &&
+      profile?.dateOfBirth?.trim() &&
+      profile?.displayName?.trim() &&
+      profile?.username?.trim(),
+  );
+}
+
+export function isValidDateOfBirth(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+  const date = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) {
+    return false;
+  }
+  const today = new Date();
+  const todayIso = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()))
+    .toISOString()
+    .slice(0, 10);
+  return value >= '1900-01-01' && value <= todayIso;
 }

@@ -19,7 +19,8 @@ export function BathroomMap({ bathrooms, center, locationGranted, selectedId, on
       id: bathroom.id,
       coordinates: { latitude: bathroom.latitude, longitude: bathroom.longitude },
       title: bathroom.name,
-      text: bathroom.scores.community.toFixed(1),
+      text:
+        (bathroom.scores.communityReviewCount ?? 0) > 0 ? bathroom.scores.community.toFixed(1) : '•',
       textColor: selected ? '#fffaf6' : palette.surface,
       backgroundColor: selected ? palette.coral : palette.ink,
     };

@@ -77,11 +77,12 @@ export function BathroomMap({ bathrooms, center, locationGranted, selectedId, on
     markerLayer.clearLayers();
     bathrooms.forEach((bathroom) => {
       const selected = bathroom.id === selectedId;
+      const markerSize = selected ? 34 : 28;
       const icon = L.divIcon({
         className: '',
-        html: `<div style="display:flex;align-items:center;justify-content:center;min-width:${selected ? 46 : 40}px;height:${selected ? 46 : 40}px;padding:0 8px;border:3px solid #fff;border-radius:999px;background:${selected ? '#d95b43' : '#202124'};color:#fffaf6;font:900 13px system-ui;box-shadow:0 5px 16px rgba(32,33,36,.28);box-sizing:border-box">${bathroom.scores.community.toFixed(1)}</div>`,
-        iconAnchor: [selected ? 23 : 20, selected ? 23 : 20],
-        iconSize: [selected ? 46 : 40, selected ? 46 : 40],
+        html: `<div style="display:flex;align-items:center;justify-content:center;width:${markerSize}px;height:${markerSize}px;border:3px solid #fff;border-radius:999px;background:${selected ? '#d95b43' : '#202124'};box-shadow:0 5px 16px rgba(32,33,36,.28);box-sizing:border-box"><div style="width:7px;height:7px;border-radius:999px;background:#fffaf6"></div></div>`,
+        iconAnchor: [markerSize / 2, markerSize / 2],
+        iconSize: [markerSize, markerSize],
       });
       const marker = L.marker([bathroom.latitude, bathroom.longitude], {
         icon,
@@ -89,9 +90,7 @@ export function BathroomMap({ bathrooms, center, locationGranted, selectedId, on
         title: bathroom.name,
       });
       marker.on('add', () => {
-        marker
-          .getElement()
-          ?.setAttribute('aria-label', `${bathroom.name}, community score ${bathroom.scores.community.toFixed(1)}`);
+        marker.getElement()?.setAttribute('aria-label', bathroom.name);
       });
       marker.on('click', () => onSelectRef.current(bathroom.id));
       marker.bindTooltip(bathroom.name, { direction: 'top', offset: [0, -20] });

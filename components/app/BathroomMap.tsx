@@ -29,7 +29,6 @@ export function BathroomMap({ bathrooms, center, locationGranted, selectedId, on
             <Text style={styles.fallbackName} numberOfLines={1}>
               {bathroom.name}
             </Text>
-            <Text style={styles.fallbackScore}>{bathroom.scores.community.toFixed(1)}</Text>
           </Pressable>
         ))}
       </View>
@@ -75,11 +74,6 @@ const styles = StyleSheet.create({
     flex: 1,
     color: palette.ink,
     fontSize: 14,
-    fontWeight: '900',
-  },
-  fallbackScore: {
-    color: palette.jade,
-    fontSize: 15,
     fontWeight: '900',
   },
   selectedRow: {
