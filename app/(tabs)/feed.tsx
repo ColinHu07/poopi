@@ -10,7 +10,7 @@ import { getFeedItems } from '@/src/services/bathroomApi';
 import { useAuth } from '@/src/providers/AuthProvider';
 
 export default function FeedScreen() {
-  const { session } = useAuth();
+  const { isAnonymous, session } = useAuth();
   const [items, setItems] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -20,7 +20,7 @@ export default function FeedScreen() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (!session) {
+  if (!session || isAnonymous) {
     return (
       <AuthRequired
         title="See bathroom notes from friends"

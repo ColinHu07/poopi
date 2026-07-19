@@ -12,7 +12,7 @@ import { useAuth } from '@/src/providers/AuthProvider';
 type ListWithBathrooms = BathroomList & { bathrooms: Bathroom[] };
 
 export default function ListsScreen() {
-  const { session } = useAuth();
+  const { isAnonymous, session } = useAuth();
   const [lists, setLists] = useState<ListWithBathrooms[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -22,7 +22,7 @@ export default function ListsScreen() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (!session) {
+  if (!session || isAnonymous) {
     return (
       <AuthRequired
         title="Save reliable bathroom lists"

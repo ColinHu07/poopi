@@ -20,7 +20,7 @@ import {
 
 export default function BathroomDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { session } = useAuth();
+  const { isAnonymous, session } = useAuth();
   const [bathroom, setBathroom] = useState<Bathroom | undefined>();
   const [loading, setLoading] = useState(true);
 
@@ -65,6 +65,7 @@ export default function BathroomDetailScreen() {
   const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${bathroom.latitude},${bathroom.longitude}`;
   const hasCommunityScore = (bathroom.scores.communityReviewCount ?? 0) > 0;
   const hasAnyScore = bathroom.scores.personal !== undefined || bathroom.scores.friends !== undefined || hasCommunityScore;
+  const canContribute = Boolean(session && !isAnonymous);
 
   return (
     <>
@@ -88,10 +89,10 @@ export default function BathroomDetailScreen() {
             <Text style={styles.primaryButtonText}>Directions</Text>
           </Pressable>
           <Link
-            href={session ? { pathname: '/modal', params: { bathroomId: bathroom.id } } : ({ pathname: '/sign-in' } as any)}
+            href={canContribute ? { pathname: '/modal', params: { bathroomId: bathroom.id } } : ({ pathname: '/sign-in' } as any)}
             asChild>
             <Pressable style={styles.primaryButton}>
-              <Text style={styles.primaryButtonText}>{session ? 'Rate bathroom' : 'Sign in to rate'}</Text>
+              <Text style={styles.primaryButtonText}>{canContribute ? 'Rate bathroom' : 'Sign in to rate'}</Text>
             </Pressable>
           </Link>
         </View>

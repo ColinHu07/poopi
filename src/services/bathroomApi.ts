@@ -16,6 +16,7 @@ import type {
   WaitBucket,
   OperatingStatus,
   FreshnessState,
+  PublicBathroomReview,
 } from '@/src/data/types';
 import { isRatingLabel } from '@/src/data/ratingLabels';
 import { normalizeBathroomFeatures } from '@/src/data/bathroomFeatures';
@@ -30,7 +31,13 @@ import {
 } from '@/src/lib/ranking';
 import { getCurrentProfile } from '@/src/services/auth';
 import { normalizeRefugeRestroom, type RefugeRestroom } from '@/src/services/sourceNormalizers';
-import { getOrCreateRatingUser, isSupabaseConfigured, requireSupabase, supabase } from '@/src/services/supabase';
+import {
+  getOrCreateRatingUser,
+  isSupabaseConfigured,
+  requirePermanentUser,
+  requireSupabase,
+  supabase,
+} from '@/src/services/supabase';
 
 export const DEFAULT_MAP_CENTER = {
   latitude: 40.7536,
@@ -218,6 +225,26 @@ export async function getRankedBathrooms(): Promise<
     .filter(Boolean) as Array<{ bathroom: Bathroom; rating: UserRating; score: number; rank: number }>;
 }
 
+export async function getComparisonCandidates(): Promise<
+  Array<{ bathroom: Bathroom; rating: UserRating; score: number; rank: number }>
+> {
+  const ranked = await getRankedBathrooms();
+  if (ranked.length >= 2) return ranked;
+
+  const existingIds = new Set(ranked.map(({ bathroom }) => bathroom.id));
+  const nearby = await getNearbyBathrooms(DEFAULT_MAP_CENTER);
+  const additions = nearby.filter(({ id }) => isUuid(id) && !existingIds.has(id)).slice(0, 2 - ranked.length);
+  return [
+    ...ranked,
+    ...additions.map((bathroom, index) => ({
+      bathroom,
+      rating: { bathroomId: bathroom.id, rating: 1500, comparisons: 0, sentiment: 'fine' as const },
+      score: 6,
+      rank: ranked.length + index + 1,
+    })),
+  ];
+}
+
 export async function getFeedItems(): Promise<FeedItem[]> {
   if (!isSupabaseConfigured || !supabase) {
     return [];
@@ -307,6 +334,7 @@ export async function createBathroomCandidate(
   input: Pick<Bathroom, 'name' | 'address' | 'latitude' | 'longitude' | 'access'>,
 ) {
   const client = requireSupabase();
+  await requirePermanentUser('add a bathroom');
   const { data, error } = await client
     .from('bathrooms')
     .insert({
@@ -349,10 +377,7 @@ export async function logVisit(input: {
   }
 
   const client = requireSupabase();
-  const { data: userData, error: userError } = await client.auth.getUser();
-  if (userError || !userData.user) {
-    throw userError ?? new Error('You need to be signed in to log a visit.');
-  }
+  const user = await requirePermanentUser('rate a bathroom');
 
   if (!input.tags.every(isRatingLabel)) {
     throw new Error('One or more bathroom labels are not supported.');
@@ -393,7 +418,7 @@ export async function logVisit(input: {
   return {
     id: String(visitId),
     bathroomId: input.bathroomId,
-    userId: userData.user.id,
+    userId: user.id,
     sentiment: input.sentiment,
     cleanlinessRating: input.cleanlinessRating,
     odorRating: input.odorRating,
@@ -420,14 +445,10 @@ export async function recordComparison(winnerId: string, loserId: string): Promi
   const client = requireSupabase();
   const user = await getOrCreateRatingUser();
 
-  const { error: comparisonError } = await client.from('pairwise_comparisons').upsert(
-    {
-      user_id: user.id,
-      winner_bathroom_id: winnerId,
-      loser_bathroom_id: loserId,
-    },
-    { onConflict: 'user_id,pair_low_bathroom_id,pair_high_bathroom_id' },
-  );
+  const { error: comparisonError } = await client.rpc('submit_comparison_vote', {
+    p_winner_bathroom_id: winnerId,
+    p_loser_bathroom_id: loserId,
+  });
   if (comparisonError) {
     throw comparisonError;
   }
@@ -505,19 +526,37 @@ export async function createReport(bathroomId: string, reason: ReportReason): Pr
   }
 
   const client = requireSupabase();
-  const { data: userData, error: userError } = await client.auth.getUser();
-  if (userError || !userData.user) {
-    throw userError ?? new Error('You need to be signed in to report a bathroom.');
-  }
+  const user = await requirePermanentUser('report a bathroom');
 
   const { error } = await client.from('reports').insert({
     bathroom_id: bathroomId,
-    user_id: userData.user.id,
+    user_id: user.id,
     reason,
   });
   if (error) {
     throw error;
   }
+}
+
+export async function getPublicBathroomReviews(bathroomId: string): Promise<PublicBathroomReview[]> {
+  if (!isUuid(bathroomId) || !isSupabaseConfigured || !supabase) return [];
+  const { data, error } = await supabase.rpc('public_bathroom_reviews', { p_bathroom_id: bathroomId });
+  if (error || !data) return [];
+  return (data as any[]).map((row) => ({
+    id: row.id,
+    bathroomId: row.bathroom_id,
+    sentiment: row.sentiment,
+    cleanlinessRating: row.cleanliness_rating ?? undefined,
+    odorRating: row.odor_rating ?? undefined,
+    privacyRating: row.privacy_rating ?? undefined,
+    waitBucket: row.wait_bucket && isWaitBucket(row.wait_bucket) ? row.wait_bucket : undefined,
+    observedAccess: row.observed_access ?? undefined,
+    observedStatus: row.observed_status && isOperatingStatus(row.observed_status) ? row.observed_status : 'unknown',
+    ratingTags: Array.isArray(row.rating_tags) ? row.rating_tags.filter(isRatingLabel) : [],
+    publicNote: row.public_note,
+    observedAt: row.observed_at,
+    createdAt: row.created_at,
+  }));
 }
 
 async function getNearbyFromSupabase(input: NearbyBathroomInput): Promise<Bathroom[]> {

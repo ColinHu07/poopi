@@ -215,6 +215,11 @@ export interface Visit extends VisitObservation {
   createdAt: string;
 }
 
+export interface PublicBathroomReview extends Omit<VisitObservation, 'privateNote' | 'visibility'> {
+  id: string;
+  createdAt: string;
+}
+
 export interface BathroomSummary {
   cleanlinessScore?: number;
   odorScore?: number;
