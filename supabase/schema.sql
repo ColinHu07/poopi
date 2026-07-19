@@ -278,7 +278,7 @@ as $$
   limit least(greatest(result_limit, 1), 100);
 $$;
 
-grant execute on function public.nearby_bathrooms(double precision, double precision, integer) to authenticated;
+grant execute on function public.nearby_bathrooms(double precision, double precision, integer) to anon, authenticated;
 
 create or replace function public.community_comparison_votes()
 returns table (
@@ -327,10 +327,10 @@ create policy profiles_select_self on public.profiles for select using (id = aut
 create policy profiles_insert_self on public.profiles for insert with check (id = auth.uid());
 create policy profiles_update_self on public.profiles for update using (id = auth.uid()) with check (id = auth.uid());
 
-create policy bathrooms_select_authenticated on public.bathrooms for select to authenticated using (true);
+create policy bathrooms_select_public on public.bathrooms for select to anon, authenticated using (true);
 create policy bathrooms_insert_authenticated on public.bathrooms for insert to authenticated with check (true);
-create policy bathroom_sources_select_authenticated on public.bathroom_sources for select to authenticated using (true);
-create policy bathroom_features_select_authenticated on public.bathroom_features for select to authenticated using (true);
+create policy bathroom_sources_select_public on public.bathroom_sources for select to anon, authenticated using (true);
+create policy bathroom_features_select_public on public.bathroom_features for select to anon, authenticated using (true);
 
 create policy visits_select_own on public.visits for select using (user_id = auth.uid());
 create policy visits_insert_own on public.visits for insert with check (user_id = auth.uid());

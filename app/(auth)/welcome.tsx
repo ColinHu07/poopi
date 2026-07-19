@@ -32,6 +32,12 @@ export default function WelcomeScreen() {
         Rank bathrooms, save access notes, and see real nearby restroom reports before you need them.
       </Text>
 
+      <Link href="/(tabs)" asChild>
+        <Pressable accessibilityRole="link" style={styles.exploreButton}>
+          <Text style={styles.exploreText}>Explore bathrooms as a guest</Text>
+        </Pressable>
+      </Link>
+
       {configured ? (
         <View style={styles.actions}>
           <Link href={'/sign-up' as any} asChild>
@@ -156,6 +162,18 @@ const styles = StyleSheet.create({
   actions: {
     gap: 10,
     marginTop: 10,
+  },
+  exploreButton: {
+    minHeight: 54,
+    borderRadius: 8,
+    backgroundColor: palette.coral,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  exploreText: {
+    color: '#fffaf6',
+    fontSize: 16,
+    fontWeight: '900',
   },
   primaryButton: {
     minHeight: 54,

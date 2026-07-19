@@ -3,10 +3,10 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { RatingLabelPicker } from '@/components/app/RatingLabelPicker';
 import { Section, Screen } from '@/components/app/Screen';
-import { FEATURE_LABELS, TagChip } from '@/components/app/TagChip';
 import { palette } from '@/components/app/tokens';
-import type { Bathroom, FeatureTag, Sentiment } from '@/src/data/types';
+import type { Bathroom, RatingLabel, Sentiment } from '@/src/data/types';
 import { getBathroomById, logVisit } from '@/src/services/bathroomApi';
 
 const SENTIMENTS: Array<{ id: Sentiment; label: string }> = [
@@ -15,28 +15,11 @@ const SENTIMENTS: Array<{ id: Sentiment; label: string }> = [
   { id: 'disliked', label: 'Disliked' },
 ];
 
-const QUICK_TAGS: FeatureTag[] = [
-  'clean',
-  'smells_good',
-  'stinks',
-  'comfortable',
-  'wide_seat',
-  'bidet',
-  'safe',
-  'well_lit',
-  'baby_changing',
-  'wheelchair_accessible',
-  'all_gender',
-  'single_stall',
-  'urinal_only',
-  'long_line',
-];
-
 export default function ModalScreen() {
   const { bathroomId } = useLocalSearchParams<{ bathroomId?: string }>();
   const [bathroom, setBathroom] = useState<Bathroom | undefined>();
-  const [sentiment, setSentiment] = useState<Sentiment>('liked');
-  const [selectedTags, setSelectedTags] = useState<FeatureTag[]>(['clean']);
+  const [sentiment, setSentiment] = useState<Sentiment | null>(null);
+  const [selectedTags, setSelectedTags] = useState<RatingLabel[]>([]);
   const [note, setNote] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -52,14 +35,12 @@ export default function ModalScreen() {
       .finally(() => setLoading(false));
   }, [bathroomId]);
 
-  function toggleTag(tag: FeatureTag) {
-    setSelectedTags((current) =>
-      current.includes(tag) ? current.filter((currentTag) => currentTag !== tag) : [...current, tag],
-    );
-  }
-
   async function submit() {
     if (!bathroom) {
+      return;
+    }
+    if (!sentiment) {
+      setError('Choose an overall rating before saving your visit.');
       return;
     }
     setSaving(true);
@@ -103,33 +84,34 @@ export default function ModalScreen() {
 
   return (
     <Screen kicker="New visit" title={bathroom.name}>
-      <Section title="Score seed">
+      <Section title="Overall rating">
         <View style={styles.segmented}>
           {SENTIMENTS.map((item) => {
             const active = item.id === sentiment;
             return (
               <Pressable
                 key={item.id}
-                onPress={() => setSentiment(item.id)}
-                style={[styles.segment, active && styles.activeSegment]}>
+                accessibilityRole="radio"
+                accessibilityState={{ checked: active }}
+                onPress={() => {
+                  setSentiment(item.id);
+                  setError('');
+                }}
+                style={({ pressed }) => [
+                  styles.segment,
+                  active && styles.activeSegment,
+                  pressed && styles.pressed,
+                ]}>
                 <Text style={[styles.segmentText, active && styles.activeSegmentText]}>{item.label}</Text>
               </Pressable>
             );
           })}
         </View>
+        {!sentiment ? <Text style={styles.ratingHint}>Pick one to unlock bathroom labels.</Text> : null}
       </Section>
 
-      <Section title="Tags">
-        <View style={styles.tags}>
-          {QUICK_TAGS.map((tag) => {
-            const active = selectedTags.includes(tag);
-            return (
-              <Pressable key={tag} onPress={() => toggleTag(tag)}>
-                <TagChip label={FEATURE_LABELS[tag]} tone={active ? 'good' : 'neutral'} />
-              </Pressable>
-            );
-          })}
-        </View>
+      <Section title="Labels">
+        <RatingLabelPicker sentiment={sentiment} selected={selectedTags} onChange={setSelectedTags} />
       </Section>
 
       <Section title="Note">
@@ -153,7 +135,16 @@ export default function ModalScreen() {
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <Pressable disabled={saving} style={styles.submitButton} onPress={submit}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ disabled: saving || !sentiment }}
+        disabled={saving || !sentiment}
+        style={({ pressed }) => [
+          styles.submitButton,
+          !sentiment && styles.disabledSubmitButton,
+          pressed && sentiment && styles.pressed,
+        ]}
+        onPress={submit}>
         {saving ? <ActivityIndicator color="#fffaf6" /> : <Text style={styles.submitText}>Save visit</Text>}
       </Pressable>
 
@@ -189,10 +180,11 @@ const styles = StyleSheet.create({
   activeSegmentText: {
     color: palette.jade,
   },
-  tags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+  ratingHint: {
+    color: palette.muted,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 8,
   },
   noteInput: {
     minHeight: 120,
@@ -246,9 +238,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  disabledSubmitButton: {
+    backgroundColor: palette.muted,
+    opacity: 0.52,
+  },
   submitText: {
     color: '#fffaf6',
     fontSize: 16,
     fontWeight: '900',
+  },
+  pressed: {
+    opacity: 0.72,
   },
 });

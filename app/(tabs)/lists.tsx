@@ -2,14 +2,17 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, StyleSheet, Text, View } from 'react-native';
 
 import { Screen } from '@/components/app/Screen';
+import { AuthRequired } from '@/components/app/AuthRequired';
 import { TagChip } from '@/components/app/TagChip';
 import { palette } from '@/components/app/tokens';
 import type { Bathroom, BathroomList } from '@/src/data/types';
 import { getLists } from '@/src/services/bathroomApi';
+import { useAuth } from '@/src/providers/AuthProvider';
 
 type ListWithBathrooms = BathroomList & { bathrooms: Bathroom[] };
 
 export default function ListsScreen() {
+  const { session } = useAuth();
   const [lists, setLists] = useState<ListWithBathrooms[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -18,6 +21,15 @@ export default function ListsScreen() {
       .then(setLists)
       .finally(() => setLoading(false));
   }, []);
+
+  if (!session) {
+    return (
+      <AuthRequired
+        title="Save reliable bathroom lists"
+        description="Log in to save places and make lists for campus, commutes, trips, or emergency backups."
+      />
+    );
+  }
 
   return (
     <Screen kicker="Saved" title="Bathroom lists" right={<TagChip label={`${lists.length} lists`} tone="info" />}>

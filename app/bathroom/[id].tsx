@@ -1,16 +1,18 @@
 import { Link, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ScorePill } from '@/components/app/ScorePill';
 import { Section, Screen } from '@/components/app/Screen';
 import { ACCESS_LABELS, FEATURE_LABELS, TagChip } from '@/components/app/TagChip';
 import { palette } from '@/components/app/tokens';
 import type { Bathroom } from '@/src/data/types';
+import { useAuth } from '@/src/providers/AuthProvider';
 import { getBathroomById } from '@/src/services/bathroomApi';
 
 export default function BathroomDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { session } = useAuth();
   const [bathroom, setBathroom] = useState<Bathroom | undefined>();
   const [loading, setLoading] = useState(true);
 
@@ -52,6 +54,8 @@ export default function BathroomDetailScreen() {
     );
   }
 
+  const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${bathroom.latitude},${bathroom.longitude}`;
+
   return (
     <>
       <Stack.Screen options={{ title: bathroom.name }} />
@@ -65,17 +69,19 @@ export default function BathroomDetailScreen() {
         </View>
 
         <View style={styles.actions}>
-          <Link href={{ pathname: '/modal', params: { bathroomId: bathroom.id } }} asChild>
+          <Pressable
+            accessibilityRole="link"
+            onPress={() => Linking.openURL(directionsUrl)}
+            style={styles.primaryButton}>
+            <Text style={styles.primaryButtonText}>Directions</Text>
+          </Pressable>
+          <Link
+            href={session ? { pathname: '/modal', params: { bathroomId: bathroom.id } } : ({ pathname: '/sign-in' } as any)}
+            asChild>
             <Pressable style={styles.primaryButton}>
-              <Text style={styles.primaryButtonText}>Log visit</Text>
+              <Text style={styles.primaryButtonText}>{session ? 'Rate bathroom' : 'Sign in to rate'}</Text>
             </Pressable>
           </Link>
-          <Pressable style={styles.secondaryButton}>
-            <Text style={styles.secondaryButtonText}>Save</Text>
-          </Pressable>
-          <Pressable style={styles.secondaryButton}>
-            <Text style={styles.secondaryButtonText}>Report</Text>
-          </Pressable>
         </View>
 
         <Section title="Access">
@@ -172,7 +178,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   primaryButton: {
-    flex: 1.4,
+    flex: 1,
     minHeight: 48,
     borderRadius: 8,
     backgroundColor: palette.coral,
@@ -181,21 +187,6 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: '#fffaf6',
-    fontSize: 15,
-    fontWeight: '900',
-  },
-  secondaryButton: {
-    flex: 1,
-    minHeight: 48,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: palette.line,
-    backgroundColor: palette.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  secondaryButtonText: {
-    color: palette.ink,
     fontSize: 15,
     fontWeight: '900',
   },

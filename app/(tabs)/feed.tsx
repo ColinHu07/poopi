@@ -2,12 +2,15 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { Screen } from '@/components/app/Screen';
+import { AuthRequired } from '@/components/app/AuthRequired';
 import { TagChip } from '@/components/app/TagChip';
 import { palette } from '@/components/app/tokens';
 import type { FeedItem } from '@/src/data/types';
 import { getFeedItems } from '@/src/services/bathroomApi';
+import { useAuth } from '@/src/providers/AuthProvider';
 
 export default function FeedScreen() {
+  const { session } = useAuth();
   const [items, setItems] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -16,6 +19,15 @@ export default function FeedScreen() {
       .then(setItems)
       .finally(() => setLoading(false));
   }, []);
+
+  if (!session) {
+    return (
+      <AuthRequired
+        title="See bathroom notes from friends"
+        description="Log in to follow people you trust and see the bathrooms they rated, ranked, or confirmed."
+      />
+    );
+  }
 
   return (
     <Screen kicker="Friends" title="Live notes" right={<TagChip label={`${items.length} updates`} tone="good" />}>

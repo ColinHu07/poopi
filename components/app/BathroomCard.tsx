@@ -42,7 +42,11 @@ export function BathroomCard({ bathroom, compact, onPress }: BathroomCardProps) 
 
   if (onPress) {
     return (
-      <Pressable onPress={onPress} style={({ pressed }) => [styles.card, compact && styles.compact, pressed && styles.pressed]}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${bathroom.name}, community score ${bathroom.scores.community.toFixed(1)}`}
+        onPress={onPress}
+        style={({ pressed }) => [styles.card, compact && styles.compact, pressed && styles.pressed]}>
         {content}
       </Pressable>
     );
@@ -50,7 +54,10 @@ export function BathroomCard({ bathroom, compact, onPress }: BathroomCardProps) 
 
   return (
     <Link href={{ pathname: '/bathroom/[id]', params: { id: bathroom.id } }} asChild>
-      <Pressable style={({ pressed }) => [styles.card, compact && styles.compact, pressed && styles.pressed]}>
+      <Pressable
+        accessibilityRole="link"
+        accessibilityLabel={`Open ${bathroom.name} bathroom details`}
+        style={({ pressed }) => [styles.card, compact && styles.compact, pressed && styles.pressed]}>
         {content}
       </Pressable>
     </Link>

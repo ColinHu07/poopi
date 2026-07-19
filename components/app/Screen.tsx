@@ -41,6 +41,9 @@ const styles = StyleSheet.create({
     backgroundColor: palette.paper,
   },
   content: {
+    width: '100%',
+    maxWidth: 1180,
+    alignSelf: 'center',
     gap: 18,
     padding: 18,
     paddingBottom: 120,
@@ -49,6 +52,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
     gap: 16,
   },
   headerText: {
