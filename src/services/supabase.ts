@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 import 'react-native-url-polyfill/auto';
+import { isPermanentAccount } from '@/src/lib/authAccess';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -41,6 +42,19 @@ export async function getOrCreateRatingUser() {
   const { data, error } = await client.auth.signInAnonymously();
   if (error || !data.user) {
     throw error ?? new Error('Unable to create an anonymous rating session.');
+  }
+  return data.user;
+}
+
+export async function requirePermanentUser(action: string) {
+  const client = requireSupabase();
+  const { data, error } = await client.auth.getUser();
+  if (error) throw error;
+  if (!data.user) {
+    throw new Error(`You need to sign in to ${action}.`);
+  }
+  if (!isPermanentAccount(data.user)) {
+    throw new Error(`Create or sign in to an account to ${action}.`);
   }
   return data.user;
 }

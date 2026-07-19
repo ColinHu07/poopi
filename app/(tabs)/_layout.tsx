@@ -91,7 +91,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: session ? 'Profile' : 'Log in',
+          title: session && !isAnonymous ? 'Profile' : 'Log in',
           tabBarIcon: ({ color }) => (
             <TabIcon color={color} fallback="P" name={{ ios: 'person.crop.circle', android: 'person', web: 'person' }} />
           ),

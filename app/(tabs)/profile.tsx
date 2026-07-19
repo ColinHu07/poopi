@@ -10,7 +10,7 @@ import { useAuth } from '@/src/providers/AuthProvider';
 import { getProfileSummary, type ProfileSummary } from '@/src/services/bathroomApi';
 
 export default function ProfileScreen() {
-  const { session, signOut } = useAuth();
+  const { isAnonymous, session, signOut } = useAuth();
   const [profile, setProfile] = useState<ProfileSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -22,7 +22,7 @@ export default function ProfileScreen() {
 
   const topTags = [...new Set(profile?.favoriteTags ?? [])].slice(0, 6) as FeatureTag[];
 
-  if (!session) {
+  if (!session || isAnonymous) {
     return (
       <AuthRequired
         title="Bring your bathroom taste with you"

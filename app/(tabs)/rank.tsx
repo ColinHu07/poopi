@@ -7,7 +7,7 @@ import { Screen } from '@/components/app/Screen';
 import { TagChip } from '@/components/app/TagChip';
 import { palette, shadow } from '@/components/app/tokens';
 import type { Bathroom, UserRating } from '@/src/data/types';
-import { getRankedBathrooms, recordComparison } from '@/src/services/bathroomApi';
+import { getComparisonCandidates, recordComparison } from '@/src/services/bathroomApi';
 import { useAuth } from '@/src/providers/AuthProvider';
 
 type RankedItem = { bathroom: Bathroom; rating: UserRating; score: number; rank: number };
@@ -25,7 +25,7 @@ export default function RankScreen() {
   async function loadRanked() {
     setLoading(true);
     try {
-      setRanked(await getRankedBathrooms());
+      setRanked(await getComparisonCandidates());
     } finally {
       setLoading(false);
     }
@@ -63,7 +63,7 @@ export default function RankScreen() {
       ) : ranked.length === 0 ? (
         <View style={styles.empty}>
           <Text style={styles.emptyTitle}>No rankings yet</Text>
-          <Text style={styles.emptyText}>Log a bathroom visit from the map to start your personal comparison list.</Text>
+          <Text style={styles.emptyText}>No persisted bathrooms are available for comparison yet.</Text>
         </View>
       ) : left && right ? (
         <View style={styles.compareCard}>
