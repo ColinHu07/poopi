@@ -2,7 +2,7 @@
 
 > This file is the source of truth for product and engineering work. Check off a task only after its acceptance criterion is met and the change is merged.
 
-**Last verified:** July 15, 2026<br>
+**Last verified:** July 19, 2026<br>
 **North star:** Make Poopi the fastest way to find a trustworthy nearby bathroom, then layer in Beli-style personal rankings and social discovery.
 
 ## How to use this roadmap
@@ -18,15 +18,16 @@
 
 ### Working today
 
-- Expo/React Native app with Expo Router and an iPhone-native Apple Maps view.
+- Expo/React Native app with Expo Router, an iPhone-native Apple Maps view, and a Leaflet/OpenStreetMap web map.
 - Foreground location permission, nearby markers, marker selection, map filters, and a New York fallback.
-- Supabase email/password authentication, profile completion, PostGIS schema, and row-level security.
-- Five authenticated tabs: Map, Rank, Feed, Lists, and Profile.
+- Supabase email/password and Google OAuth authentication, anonymous guest sessions, profile completion, PostGIS schema, and row-level security.
+- Five tabs: Map, Rank, Feed, Lists, and Profile, with account-only actions gated at the point of use.
 - Bathroom details with access information, features, source provenance, confidence, and photos/placeholders.
 - Visit logging with sentiment, quick tags, and a public note.
 - Personal Elo-style rankings plus weighted community Bradley-Terry aggregation from pairwise votes.
 - Refuge Restrooms import/fallback, OSM and Refuge normalizers, deduplication helpers, and a fixture-backed visualizer.
-- `npm run typecheck` passes and all 12 current automated tests pass.
+- Responsive static web export and Sites packaging for phone-browser testing.
+- `npm run typecheck` passes and all 20 current automated tests pass.
 
 ### Incomplete or misleading today
 
@@ -40,7 +41,7 @@
 - A direct Refuge fallback result may have a non-UUID ID and therefore cannot be reviewed or reported.
 - There is no destination search, distance/ETA, directions action, “search this area,” map clustering, or map/list bottom sheet.
 - Photo tables and moderation copy exist, but there is no storage/upload workflow.
-- Android and web receive a list fallback instead of a functional map.
+- Android still receives a list fallback instead of a functional map.
 
 ## Product principles
 
@@ -143,7 +144,7 @@ This is the complete launch set of 30 tags. The rating flow should initially sho
 
 ## P2 — Expansion
 
-- [ ] **P2 · MAP-06 — Add Android and evaluate web map parity** — Owner: `@unassigned` · Depends on: P0 complete · Done when: Android has a Google Maps experience matching P0 behavior and a documented decision records whether web receives a full map or supported list-only experience. PR: —
+- [ ] **P2 · MAP-06 — Add Android map parity** — Owner: `@unassigned` · Depends on: P0 complete · Done when: Android has a Google Maps experience matching the iPhone/web P0 discovery behavior. PR: —
 - [ ] **P2 · DATA-07 — Expand city datasets and refresh jobs** — Owner: `@unassigned` · Depends on: DATA-05 · Done when: supported city sources use the shared ingestion/dedupe pipeline, scheduled refreshes are observable, and source licenses are retained. PR: —
 - [ ] **P2 · MAP-07 — Personalize recommendations** — Owner: `@unassigned` · Depends on: SOCIAL-04 · Done when: opted-in saved filters and review history improve ordering without overriding hard accessibility/access constraints, and users can reset personalization. PR: —
 - [ ] **P2 · SAFETY-03 — Build moderation tools** — Owner: `@unassigned` · Depends on: SAFETY-01 · Done when: authorized moderators can triage duplicates, reports, photos, abusive notes, and appeals with an audit trail. PR: —
@@ -181,7 +182,7 @@ Each PR should:
 ### Supabase integration
 
 - Anonymous users can read public bathroom facts, summaries, approved photos, and public reviews.
-- Anonymous users cannot write, and no user can read another user’s private note or private visit.
+- Anonymous users can write only identity-bound comparison votes; they cannot create account-only contributions, and no user can read another user’s private note or private visit.
 - Authenticated review/report/candidate writes enforce ownership and valid values.
 - Review creation updates summary data without exposing protected profile fields.
 - Photo visibility follows moderation and ownership rules.

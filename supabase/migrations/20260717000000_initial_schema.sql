@@ -124,11 +124,8 @@ create table public.pairwise_comparisons (
   user_id uuid not null references auth.users(id) on delete cascade,
   winner_bathroom_id uuid not null references public.bathrooms(id) on delete cascade,
   loser_bathroom_id uuid not null references public.bathrooms(id) on delete cascade,
-  pair_low_bathroom_id uuid generated always as (least(winner_bathroom_id, loser_bathroom_id)) stored,
-  pair_high_bathroom_id uuid generated always as (greatest(winner_bathroom_id, loser_bathroom_id)) stored,
   created_at timestamptz not null default now(),
-  check (winner_bathroom_id <> loser_bathroom_id),
-  unique (user_id, pair_low_bathroom_id, pair_high_bathroom_id)
+  check (winner_bathroom_id <> loser_bathroom_id)
 );
 
 create table public.photos (
@@ -282,32 +279,6 @@ $$;
 
 grant execute on function public.nearby_bathrooms(double precision, double precision, integer) to anon, authenticated;
 
-create or replace function public.community_comparison_votes()
-returns table (
-  winner_bathroom_id uuid,
-  loser_bathroom_id uuid,
-  voter_comparison_count bigint
-)
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  with voter_history as (
-    select user_id, count(*) as comparison_count
-    from public.pairwise_comparisons
-    group by user_id
-  )
-  select
-    pc.winner_bathroom_id,
-    pc.loser_bathroom_id,
-    vh.comparison_count
-  from public.pairwise_comparisons pc
-  join voter_history vh on vh.user_id = pc.user_id;
-$$;
-
-grant execute on function public.community_comparison_votes() to anon, authenticated;
-
 alter table public.profiles enable row level security;
 alter table public.bathrooms enable row level security;
 alter table public.bathroom_sources enable row level security;
@@ -349,9 +320,6 @@ create policy ratings_update_own on public.user_bathroom_ratings for update usin
 
 create policy comparisons_select_own on public.pairwise_comparisons for select using (user_id = auth.uid());
 create policy comparisons_insert_own on public.pairwise_comparisons for insert with check (user_id = auth.uid());
-create policy comparisons_update_own on public.pairwise_comparisons
-for update using (user_id = auth.uid()) with check (user_id = auth.uid());
-
 create policy photos_select_approved_or_own on public.photos
 for select using (moderation_status = 'approved' or user_id = auth.uid());
 create policy photos_insert_own on public.photos for insert with check (user_id = auth.uid());

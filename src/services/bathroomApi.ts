@@ -456,6 +456,7 @@ async function applyCommunityComparisonScores(bathrooms: Bathroom[]): Promise<Ba
             ...bathroom.scores,
             community: community.score,
           },
+          communityReviewCount: Math.max(1, Math.round(community.comparisonWeight)),
         }
       : bathroom;
   });
