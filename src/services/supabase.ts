@@ -7,14 +7,15 @@ const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+const isServerRender = Platform.OS === 'web' && typeof window === 'undefined';
 
 export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl!, supabaseAnonKey!, {
       auth: {
-        storage: AsyncStorage,
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: Platform.OS === 'web',
+        storage: isServerRender ? undefined : AsyncStorage,
+        autoRefreshToken: !isServerRender,
+        persistSession: !isServerRender,
+        detectSessionInUrl: Platform.OS === 'web' && !isServerRender,
         flowType: 'pkce',
       },
     })

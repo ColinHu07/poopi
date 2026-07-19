@@ -1,3 +1,5 @@
+-- Initial Poopi schema. Apply with `supabase db push` or paste this migration
+-- into the Supabase SQL editor for a newly created project.
 create extension if not exists postgis;
 create extension if not exists pgcrypto;
 
