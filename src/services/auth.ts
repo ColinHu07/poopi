@@ -1,4 +1,6 @@
 import type { Session } from '@supabase/supabase-js';
+import * as Linking from 'expo-linking';
+import { Platform } from 'react-native';
 
 import {
   normalizePhoneE164,
@@ -148,6 +150,28 @@ export async function signIn(input: { email: string; password: string }) {
     email: input.email.trim(),
     password: input.password,
   });
+  if (error) {
+    throw error;
+  }
+  return data;
+}
+
+function getOAuthRedirectUrl() {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    return `${window.location.origin}/`;
+  }
+  return Linking.createURL('/');
+}
+
+export async function signInWithGoogle() {
+  const client = requireSupabase();
+  const { data, error } = await client.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: getOAuthRedirectUrl(),
+    },
+  });
+
   if (error) {
     throw error;
   }

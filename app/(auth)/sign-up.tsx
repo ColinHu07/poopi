@@ -2,18 +2,20 @@ import { Link, Redirect, router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { GoogleAuthButton } from '@/components/app/GoogleAuthButton';
 import { palette } from '@/components/app/tokens';
 import { validateSignupInput } from '@/src/lib/profile';
 import { useAuth } from '@/src/providers/AuthProvider';
 
 export default function SignUpScreen() {
-  const { configured, profileComplete, session, signUp } = useAuth();
+  const { configured, profileComplete, session, signInWithGoogle, signUp } = useAuth();
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [googleSubmitting, setGoogleSubmitting] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
@@ -55,10 +57,28 @@ export default function SignUpScreen() {
     }
   }
 
+  async function submitGoogle() {
+    setError('');
+    setMessage('');
+    setGoogleSubmitting(true);
+    try {
+      await signInWithGoogle();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to continue with Google.');
+      setGoogleSubmitting(false);
+    }
+  }
+
   return (
     <View style={styles.screen}>
       <Text style={styles.title}>Create account</Text>
       <Text style={styles.copy}>Your rankings start empty. Nearby bathrooms appear after location permission.</Text>
+      <GoogleAuthButton loading={googleSubmitting} onPress={submitGoogle} />
+      <View style={styles.divider}>
+        <View style={styles.dividerLine} />
+        <Text style={styles.dividerText}>or use email</Text>
+        <View style={styles.dividerLine} />
+      </View>
       <Field value={displayName} onChangeText={setDisplayName} label="Display name" />
       <Field value={username} onChangeText={setUsername} label="Username" autoCapitalize="none" />
       <Field value={email} onChangeText={setEmail} label="Email" autoCapitalize="none" keyboardType="email-address" />
@@ -107,6 +127,22 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     fontWeight: '700',
     marginBottom: 6,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginVertical: 2,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: palette.line,
+  },
+  dividerText: {
+    color: palette.muted,
+    fontSize: 12,
+    fontWeight: '800',
   },
   field: {
     gap: 5,

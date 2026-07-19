@@ -1,18 +1,39 @@
 import { Link } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '@/src/providers/AuthProvider';
+import { GoogleAuthButton } from './GoogleAuthButton';
 import { Screen } from './Screen';
 import { palette } from './tokens';
 
 export function AuthRequired({ title, description }: { title: string; description: string }) {
-  const { configured } = useAuth();
+  const { configured, signInWithGoogle } = useAuth();
+  const [googleSubmitting, setGoogleSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  async function submitGoogle() {
+    setError('');
+    setGoogleSubmitting(true);
+    try {
+      await signInWithGoogle();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to continue with Google.');
+      setGoogleSubmitting(false);
+    }
+  }
 
   return (
     <Screen kicker="Free account" title={title}>
       <View style={styles.card}>
         <Text style={styles.eyebrow}>Keep discovery open. Protect contributions.</Text>
         <Text style={styles.copy}>{description}</Text>
+        <GoogleAuthButton
+          disabled={!configured}
+          loading={googleSubmitting}
+          onPress={submitGoogle}
+        />
+        {error ? <Text style={styles.error}>{error}</Text> : null}
         {configured ? (
           <View style={styles.actions}>
             <Link href={'/sign-in' as any} asChild>
@@ -28,8 +49,10 @@ export function AuthRequired({ title, description }: { title: string; descriptio
           </View>
         ) : (
           <View style={styles.setupCard}>
-            <Text style={styles.setupTitle}>Account setup is not connected yet</Text>
-            <Text style={styles.setupCopy}>You can still use the map and open bathroom details as a guest.</Text>
+            <Text style={styles.setupTitle}>Google sign-in is ready for Supabase</Text>
+            <Text style={styles.setupCopy}>
+              Finish connecting Supabase to enable this button. You can still use the map and bathroom details as a guest.
+            </Text>
           </View>
         )}
       </View>
@@ -62,6 +85,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 23,
     fontWeight: '700',
+  },
+  error: {
+    color: palette.coral,
+    fontSize: 13,
+    fontWeight: '800',
   },
   actions: {
     gap: 10,
