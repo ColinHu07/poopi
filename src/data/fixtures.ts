@@ -30,13 +30,7 @@ export const seedBathrooms: Bathroom[] = [
       'step_free',
       'baby_changing',
       'all_gender',
-      'soap',
-      'dryer_or_towels',
       'mirror',
-      'lock_works',
-      'clean',
-      'safe',
-      'well_lit',
     ],
     directionsNote: 'Standalone entrance near the lawn. Attendant is usually present during open hours.',
     sourceRefs: [
@@ -75,11 +69,7 @@ export const seedBathrooms: Bathroom[] = [
       'step_free',
       'baby_changing',
       'family_room',
-      'soap',
-      'dryer_or_towels',
       'mirror',
-      'safe',
-      'well_lit',
     ],
     directionsNote: 'Ask security for the closest open restroom after entering the main hall.',
     sourceRefs: [
@@ -120,14 +110,8 @@ export const seedBathrooms: Bathroom[] = [
       'family_room',
       'all_gender',
       'single_stall',
-      'soap',
-      'dryer_or_towels',
       'hook_or_shelf',
       'mirror',
-      'clean',
-      'private',
-      'safe',
-      'well_lit',
     ],
     directionsNote: 'Near the elevators behind the central shops.',
     sourceRefs: [
@@ -161,7 +145,7 @@ export const seedBathrooms: Bathroom[] = [
     openingHours: 'Building hours',
     isOpenNow: true,
     confidence: 0.78,
-    features: ['wheelchair_accessible', 'step_free', 'all_gender', 'soap', 'mirror', 'well_lit'],
+    features: ['wheelchair_accessible', 'step_free', 'all_gender', 'mirror'],
     directionsNote: 'First-floor lobby, down the hallway across from the security desk.',
     sourceRefs: [
       {
@@ -194,7 +178,7 @@ export const seedBathrooms: Bathroom[] = [
     openingHours: 'Park hours',
     isOpenNow: true,
     confidence: 0.81,
-    features: ['wheelchair_accessible', 'soap', 'dryer_or_towels', 'mirror', 'safe', 'long_line'],
+    features: ['wheelchair_accessible', 'mirror'],
     directionsNote: 'Inside the field house beside the track.',
     sourceRefs: [
       {
@@ -227,7 +211,7 @@ export const seedBathrooms: Bathroom[] = [
     openingHours: '8 AM - 10 PM',
     isOpenNow: true,
     confidence: 0.74,
-    features: ['wheelchair_accessible', 'step_free', 'baby_changing', 'soap', 'mirror', 'clean'],
+    features: ['wheelchair_accessible', 'step_free', 'baby_changing', 'mirror'],
     directionsNote: 'Code can change. Recent reports say staff will provide it at customer service.',
     sourceRefs: [
       {
@@ -260,7 +244,7 @@ export const seedBathrooms: Bathroom[] = [
     openingHours: '6 AM - 8 PM',
     isOpenNow: false,
     confidence: 0.62,
-    features: ['single_stall', 'all_gender', 'soap', 'mirror', 'lock_works'],
+    features: ['single_stall', 'all_gender', 'mirror'],
     directionsNote: 'Single-stall restroom at the back. Access policy varies by shift.',
     sourceRefs: [
       {
@@ -293,7 +277,7 @@ export const seedBathrooms: Bathroom[] = [
     openingHours: '24 hours',
     isOpenNow: true,
     confidence: 0.7,
-    features: ['wheelchair_accessible', 'step_free', 'soap', 'mirror', 'well_lit', 'long_line'],
+    features: ['wheelchair_accessible', 'step_free', 'mirror'],
     directionsNote: 'Follow terminal signage; lines can spike during commuter peaks.',
     sourceRefs: [
       {
@@ -326,7 +310,7 @@ export const seedBathrooms: Bathroom[] = [
     openingHours: 'Park hours',
     isOpenNow: true,
     confidence: 0.83,
-    features: ['wheelchair_accessible', 'baby_changing', 'soap', 'mirror', 'well_lit', 'long_line'],
+    features: ['wheelchair_accessible', 'baby_changing', 'mirror'],
     directionsNote: 'Near the arcade and fountain. Seasonal closures can happen.',
     sourceRefs: [
       {
@@ -354,7 +338,10 @@ export const seedVisits: Visit[] = [
     userId: 'demo-user',
     sentiment: 'liked',
     publicNote: 'Still the gold standard when you need a dependable Midtown stop.',
+    ratingTags: ['sparkling_clean', 'fresh_smelling', 'great_lighting', 'changing_table'],
     tags: ['sparkling_clean', 'fresh_smelling', 'great_lighting', 'changing_table'],
+    visibility: 'public',
+    observedAt: '2026-06-22T18:12:00.000Z',
     companionIds: [],
     createdAt: '2026-06-22T18:12:00.000Z',
   },
@@ -364,7 +351,10 @@ export const seedVisits: Visit[] = [
     userId: 'demo-user',
     sentiment: 'disliked',
     publicNote: 'Useful, but the line was doing too much.',
+    ratingTags: ['long_line', 'crowded'],
     tags: ['long_line', 'crowded'],
+    visibility: 'public',
+    observedAt: '2026-06-20T08:12:00.000Z',
     companionIds: [],
     createdAt: '2026-06-20T08:12:00.000Z',
   },

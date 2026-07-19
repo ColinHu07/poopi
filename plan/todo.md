@@ -27,7 +27,7 @@
 - Personal Elo-style rankings plus weighted community Bradley-Terry aggregation from pairwise votes.
 - Refuge Restrooms import/fallback, OSM and Refuge normalizers, deduplication helpers, and a fixture-backed visualizer.
 - Responsive static web export and Sites packaging for phone-browser testing.
-- `npm run typecheck` passes and all 20 current automated tests pass.
+- `npm run typecheck` passes and all 23 current automated tests pass.
 
 ### Incomplete or misleading today
 
@@ -51,21 +51,18 @@
 4. **Needs are constraints.** Accessibility, open status, access type, and budget filters are applied before recommendation ranking.
 5. **Contributing is quick.** A useful visit review should take less than 30 seconds; notes and photos remain optional.
 6. **Privacy is structural.** Public profile data is deliberately limited, private notes never enter public queries, and sensitive bathroom photos are prohibited.
-7. **Rate, then tag.** Positive tags are optional endorsements unlocked only after the user chooses an overall bathroom rating; tags cannot be submitted by themselves.
+7. **Rate, then tag.** Good/bad labels are optional observations unlocked only after the user chooses an overall bathroom rating; labels cannot be submitted by themselves.
 
 ## Feedback taxonomy
 
-Poopi's grading tags are positive-only, Beli-style endorsements. They are attached to a completed rating, not treated as standalone bathroom facts. Negative or urgent conditions such as dirty, unsafe, closed, or out of order belong in the separate report/status flow.
+Poopi's Beli-style grading labels are attached to a completed rating and are not standalone bathroom facts. The launch catalog keeps good and bad labels separate and alphabetized. Urgent conditions can also be submitted through the report/status flow independently of a rating.
 
 | Group | Approved grading tags |
 |---|---|
-| Cleanliness and essentials | Sparkling Clean, Fresh-Smelling, Well Stocked, Great Soap, Paper Towels, Well Maintained |
-| Speed and convenience | No Wait, Short Line, Plenty of Stalls, Easy to Find, Open Late, Free to Use |
-| Privacy and comfort | Very Private, Single-Stall, Strong Locks, Minimal Stall Gaps, Spacious, Great Lighting, Good Ventilation, Hooks and Shelves |
-| Accessibility and inclusion | Gender Neutral, Wheelchair Accessible, Step-Free, Family Restroom, Changing Table, Menstrual Products |
-| Standout features | Touchless Fixtures, Bidet, Luxury Bathroom, Hidden Gem |
+| Good things | Bidet, Changing Table, Easy to Find, Family Restroom, Free to Use, Fresh-Smelling, Gender Neutral, Good Ventilation, Great Lighting, Great Soap, Hidden Gem, Hooks and Shelves, Luxury Bathroom, Menstrual Products, Minimal Stall Gaps, No Wait, Open Late, Paper Towels, Plenty of Stalls, Short Line, Single-Stall, Sparkling Clean, Spacious, Step-Free, Strong Locks, Touchless Fixtures, Very Private, Well Maintained, Well Stocked, Wheelchair Accessible |
+| Bad things | Broken Lock, Crowded, Cramped, Customers Only, Dirty, Felt Unsafe, Hard to Find, Little Privacy, Long Line, No Soap, No Toilet Paper, Out of Order, Poor Lighting, Poor Ventilation, Poorly Stocked, Smelly |
 
-This is the complete launch set of 30 tags. The rating flow should initially show a relevant subset of roughly 10–12 and provide a **More tags** action for the full set.
+This is the complete launch set of 46 labels. The picker separates good and bad things and keeps each section alphabetized.
 
 ### Rating-gated behavior
 
@@ -79,7 +76,7 @@ This is the complete launch set of 30 tags. The rating flow should initially sho
 ### Target client contracts
 
 - `BathroomFeature`: source-backed facts used for discovery and filtering; these remain separate from user grading tags.
-- `RatingTag`: a controlled union containing exactly the 30 approved positive tags above.
+- `RatingTag`: a controlled union containing exactly the 46 approved good/bad labels above.
 - `WaitBucket`: `none | under_five | five_to_ten | ten_to_twenty | over_twenty`.
 - `OperatingStatus`: `open | closed | partly_out_of_order | out_of_order | unknown`.
 - `VisitVisibility`: `public | friends | private`.
@@ -102,7 +99,7 @@ This is the complete launch set of 30 tags. The rating flow should initially sho
 
 ### Shared contract and data gate
 
-- [ ] **P0 · DATA-01 — Split facts from rated endorsements** — Owner: `@unassigned` · Depends on: none · Done when: TypeScript types and a forward-only Supabase migration implement the target contracts, restrict `RatingTag` to the approved positive set, require every tag row to reference a rating, and migrate compatible existing visit tags without losing data. PR: —
+- [x] **P0 · DATA-01 — Split facts from rated endorsements** — Owner: `@codex` · Depends on: none · Done when: TypeScript types and a forward-only Supabase migration implement the target contracts, restrict `RatingTag` to the approved good/bad catalog, require every tag row to reference a rating, and migrate compatible existing visit tags without losing data. PR: [#3](https://github.com/ColinHu07/poopi/pull/3)
 - [ ] **P0 · DATA-02 — Build trustworthy bathroom summaries** — Owner: `@unassigned` · Depends on: DATA-01 · Done when: nearby/detail queries return real recency-weighted scores, wait, counts, freshness, confidence, and status instead of hard-coded values. PR: —
 - [ ] **P0 · DATA-03 — Separate public reads from identity-bound writes** — Owner: `@unassigned` · Depends on: DATA-01 · Done when: guests can read public data and submit rate-limited comparisons through persistent anonymous identities; account-only and private writes require permanent users; private notes and non-public visits fail public RLS tests. PR: —
 - [ ] **P0 · DATA-04 — Persist every external result before display** — Owner: `@unassigned` · Depends on: DATA-01 · Done when: Refuge results are upserted/deduplicated to Poopi UUIDs before entering the client, and every displayed result can be reviewed, saved, or reported. PR: —
@@ -174,7 +171,7 @@ Each PR should:
 ### Unit
 
 - Validate feature/rating-tag taxonomies, rating bounds, wait buckets, and visibility values.
-- Verify tags cannot be displayed or submitted before an overall rating and cannot survive deletion of their parent rating.
+- Verify labels cannot be displayed or submitted before an overall rating and cannot survive deletion of their parent rating.
 - Verify weighted Bradley-Terry convergence, contributor-weight caps, one-vote-per-pair behavior, interpolation, median wait, confidence, and unknown-state behavior.
 - Verify hard filters precede recommendation ranking and that recommendation ordering is deterministic.
 - Cover Refuge/OSM/user dedupe and external-ID-to-Poopi-UUID persistence.

@@ -30,7 +30,7 @@ export function BathroomCard({ bathroom, compact, onPress }: BathroomCardProps) 
         </Text>
         <View style={styles.tagRow}>
           {primaryTags.map((tag) => (
-            <TagChip key={tag} label={FEATURE_LABELS[tag]} tone={tag === 'clean' ? 'good' : 'neutral'} />
+            <TagChip key={tag} label={FEATURE_LABELS[tag]} tone="neutral" />
           ))}
         </View>
         {!compact && (

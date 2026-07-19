@@ -136,9 +136,6 @@ function featuresFromOsmTags(tags: Record<string, string>): FeatureTag[] {
   if (tags['toilets:position'] === 'seated' || tags['toilets:number'] === '1') {
     features.add('single_stall');
   }
-  if (truthy(tags.fee) || tags.fee === 'no') {
-    features.add(tags.fee === 'no' ? 'safe' : 'lock_works');
-  }
   return [...features];
 }
 
