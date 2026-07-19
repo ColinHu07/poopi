@@ -1,4 +1,5 @@
 import type { AccessType, Bathroom, FeatureTag, SourceRef } from '@/src/data/types';
+import { freshnessState } from '@/src/lib/bathroomSummary';
 
 export interface RefugeRestroom {
   id: number;
@@ -55,7 +56,7 @@ export function normalizeRefugeRestroom(record: RefugeRestroom): Bathroom {
     access: 'unknown',
     priceNote: 'Community reported',
     openingHours: 'Unknown',
-    isOpenNow: true,
+    isOpenNow: false,
     confidence,
     features,
     directionsNote: [record.directions, record.comment].filter(Boolean).join(' '),
@@ -72,6 +73,13 @@ export function normalizeRefugeRestroom(record: RefugeRestroom): Bathroom {
     ],
     photos: [],
     reportsSummary: {},
+    summary: {
+      reviewCount: 0,
+      confidence,
+      lastConfirmedAt: record.updated_at || undefined,
+      operatingStatus: 'unknown',
+      freshness: freshnessState(record.updated_at || undefined),
+    },
     scores: { community: 6, communityReviewCount: 0, confidence, recommendation: 0.5 },
     userStatus: 'unvisited',
     lastConfirmedAt: record.updated_at,
@@ -98,7 +106,7 @@ export function normalizeOsmToilet(element: OsmToiletElement): Bathroom {
     access,
     priceNote: tags.fee === 'yes' ? 'Fee reported' : tags.fee === 'no' ? 'Free' : 'Unknown',
     openingHours: tags.opening_hours ?? 'Unknown',
-    isOpenNow: tags.opening_hours !== 'closed',
+    isOpenNow: false,
     confidence,
     features,
     directionsNote: tags.description ?? tags.note ?? '',
@@ -115,9 +123,16 @@ export function normalizeOsmToilet(element: OsmToiletElement): Bathroom {
     ],
     photos: [],
     reportsSummary: {},
+    summary: {
+      reviewCount: 0,
+      confidence,
+      lastConfirmedAt: tags.check_date,
+      operatingStatus: 'unknown',
+      freshness: freshnessState(tags.check_date),
+    },
     scores: { community: 6, communityReviewCount: 0, confidence, recommendation: 0.5 },
     userStatus: 'unvisited',
-    lastConfirmedAt: tags.check_date ?? new Date().toISOString(),
+    lastConfirmedAt: tags.check_date,
   };
 }
 

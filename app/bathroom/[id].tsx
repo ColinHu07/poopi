@@ -10,6 +10,13 @@ import { palette } from '@/components/app/tokens';
 import type { Bathroom } from '@/src/data/types';
 import { useAuth } from '@/src/providers/AuthProvider';
 import { getBathroomById } from '@/src/services/bathroomApi';
+import {
+  STATUS_LABELS,
+  WAIT_LABELS,
+  FRESHNESS_LABELS,
+  confidenceLabel,
+  confirmationLabel,
+} from '@/src/lib/bathroomSummary';
 
 export default function BathroomDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -94,11 +101,24 @@ export default function BathroomDetailScreen() {
             <Fact label="Access" value={ACCESS_LABELS[bathroom.access]} />
             <Fact label="Cost" value={bathroom.priceNote} />
             <Fact label="Hours" value={bathroom.openingHours} />
-            <Fact label="Confidence" value={`${Math.round(bathroom.confidence * 100)}%`} />
+            <Fact label="Confidence" value={`${confidenceLabel(bathroom.summary.confidence)} · ${Math.round(bathroom.summary.confidence * 100)}%`} />
           </View>
         </Section>
 
-        <Section title="Tags">
+        <Section title="Recent conditions">
+          <View style={styles.factGrid}>
+            <Fact label="Status" value={STATUS_LABELS[bathroom.summary.operatingStatus]} />
+            <Fact label="Typical wait" value={bathroom.summary.medianWait ? WAIT_LABELS[bathroom.summary.medianWait] : 'Unknown'} />
+            <Fact label="Cleanliness" value={formatDimension(bathroom.summary.cleanlinessScore)} />
+            <Fact label="Smell" value={formatDimension(bathroom.summary.odorScore)} />
+            <Fact label="Privacy" value={formatDimension(bathroom.summary.privacyScore)} />
+            <Fact label="Reviews" value={String(bathroom.summary.reviewCount)} />
+            <Fact label="Freshness" value={FRESHNESS_LABELS[bathroom.summary.freshness]} />
+          </View>
+          <Text style={styles.confirmation}>{confirmationLabel(bathroom.summary.lastConfirmedAt)}</Text>
+        </Section>
+
+        <Section title="Bathroom features">
           <View style={styles.tags}>
             {bathroom.features.length ? (
               bathroom.features.map((tag) => (
@@ -149,6 +169,10 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
+function formatDimension(value: number | undefined): string {
+  return value === undefined ? 'Not rated yet' : `${value.toFixed(1)} / 5`;
+}
+
 const styles = StyleSheet.create({
   hero: {
     height: 260,
@@ -173,6 +197,11 @@ const styles = StyleSheet.create({
   scoreRow: {
     flexDirection: 'row',
     gap: 10,
+  },
+  confirmation: {
+    color: palette.muted,
+    fontSize: 12,
+    fontWeight: '700',
   },
   actions: {
     flexDirection: 'row',

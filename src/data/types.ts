@@ -100,6 +100,9 @@ export type OperatingStatus = (typeof OPERATING_STATUSES)[number];
 export const VISIT_VISIBILITIES = ['public', 'friends', 'private'] as const;
 export type VisitVisibility = (typeof VISIT_VISIBILITIES)[number];
 
+export const FRESHNESS_STATES = ['fresh', 'aging', 'stale', 'unknown'] as const;
+export type FreshnessState = (typeof FRESHNESS_STATES)[number];
+
 export type SourceName =
   | 'osm'
   | 'refuge'
@@ -158,6 +161,7 @@ export interface Bathroom {
   city: string;
   latitude: number;
   longitude: number;
+  distanceMeters?: number;
   access: AccessType;
   priceNote: string;
   openingHours: string;
@@ -168,9 +172,10 @@ export interface Bathroom {
   sourceRefs: SourceRef[];
   photos: BathroomPhoto[];
   reportsSummary: Partial<Record<ReportReason, number>>;
+  summary: BathroomSummary;
   scores: ScoreBundle;
   userStatus: UserBathroomStatus;
-  lastConfirmedAt: string;
+  lastConfirmedAt?: string;
 }
 
 export interface BathroomFilters {
@@ -220,6 +225,7 @@ export interface BathroomSummary {
   confidence: number;
   lastConfirmedAt?: string;
   operatingStatus: OperatingStatus;
+  freshness: FreshnessState;
 }
 
 export interface PairwiseComparison {
