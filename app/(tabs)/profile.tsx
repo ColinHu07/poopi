@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Section, Screen } from '@/components/app/Screen';
+import { AuthRequired } from '@/components/app/AuthRequired';
 import { FEATURE_LABELS, TagChip } from '@/components/app/TagChip';
 import { palette } from '@/components/app/tokens';
 import type { FeatureTag } from '@/src/data/types';
@@ -9,7 +10,7 @@ import { useAuth } from '@/src/providers/AuthProvider';
 import { getProfileSummary, type ProfileSummary } from '@/src/services/bathroomApi';
 
 export default function ProfileScreen() {
-  const { signOut } = useAuth();
+  const { session, signOut } = useAuth();
   const [profile, setProfile] = useState<ProfileSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -21,11 +22,19 @@ export default function ProfileScreen() {
 
   const topTags = [...new Set(profile?.favoriteTags ?? [])].slice(0, 6) as FeatureTag[];
 
+  if (!session) {
+    return (
+      <AuthRequired
+        title="Bring your bathroom taste with you"
+        description="Log in to rate bathrooms, manage your lists, and keep your contributions connected to your profile."
+      />
+    );
+  }
+
   return (
     <Screen
-      kicker={profile?.handle ?? '@new'}
-      title={profile?.displayName ?? 'Profile'}
-      right={<TagChip label={profile?.city ?? 'New York'} tone="good" />}>
+      kicker="Your profile"
+      title={profile?.displayName ? `@${profile.displayName}` : 'Profile'}>
       {loading || !profile ? (
         <View style={styles.panel}>
           <ActivityIndicator color={palette.jade} />

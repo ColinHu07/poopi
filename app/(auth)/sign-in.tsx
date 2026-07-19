@@ -2,14 +2,16 @@ import { Link, Redirect, router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { GoogleAuthButton } from '@/components/app/GoogleAuthButton';
 import { palette } from '@/components/app/tokens';
 import { useAuth } from '@/src/providers/AuthProvider';
 
 export default function SignInScreen() {
-  const { configured, profileComplete, session, signIn } = useAuth();
+  const { configured, profileComplete, session, signIn, signInWithGoogle } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [googleSubmitting, setGoogleSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   if (!configured) {
@@ -35,10 +37,27 @@ export default function SignInScreen() {
     }
   }
 
+  async function submitGoogle() {
+    setError('');
+    setGoogleSubmitting(true);
+    try {
+      await signInWithGoogle();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to continue with Google.');
+      setGoogleSubmitting(false);
+    }
+  }
+
   return (
     <View style={styles.screen}>
       <Text style={styles.title}>Log in</Text>
       <Text style={styles.copy}>Get back to your saved access notes and bathroom rankings.</Text>
+      <GoogleAuthButton loading={googleSubmitting} onPress={submitGoogle} />
+      <View style={styles.divider}>
+        <View style={styles.dividerLine} />
+        <Text style={styles.dividerText}>or use email</Text>
+        <View style={styles.dividerLine} />
+      </View>
       <Field value={email} onChangeText={setEmail} label="Email" autoCapitalize="none" keyboardType="email-address" />
       <Field value={password} onChangeText={setPassword} label="Password" secureTextEntry />
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -87,6 +106,22 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     fontWeight: '700',
     marginBottom: 8,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginVertical: 2,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: palette.line,
+  },
+  dividerText: {
+    color: palette.muted,
+    fontSize: 12,
+    fontWeight: '800',
   },
   field: {
     gap: 6,

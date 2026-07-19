@@ -1,5 +1,4 @@
-import { AppleMaps } from 'expo-maps';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { Bathroom } from '@/src/data/types';
 import { palette } from './tokens';
@@ -13,93 +12,31 @@ interface BathroomMapProps {
 }
 
 export function BathroomMap({ bathrooms, center, locationGranted, selectedId, onSelect }: BathroomMapProps) {
-  if (Platform.OS !== 'ios') {
-    return (
-      <View style={styles.fallback}>
-        <Text style={styles.fallbackTitle}>Map preview is iPhone-first</Text>
-        <Text style={styles.fallbackText}>Apple Maps renders on iOS. Nearby real bathroom results are listed below.</Text>
-        <View style={styles.fallbackList}>
-          {bathrooms.slice(0, 4).map((bathroom) => (
-            <Pressable key={bathroom.id} onPress={() => onSelect(bathroom.id)} style={styles.fallbackRow}>
-              <Text style={styles.fallbackName} numberOfLines={1}>
-                {bathroom.name}
-              </Text>
-              <Text style={styles.fallbackScore}>{bathroom.scores.community.toFixed(1)}</Text>
-            </Pressable>
-          ))}
-        </View>
-      </View>
-    );
-  }
-
-  const annotations = bathrooms.map((bathroom) => {
-    const selected = bathroom.id === selectedId;
-    return {
-      id: bathroom.id,
-      coordinates: { latitude: bathroom.latitude, longitude: bathroom.longitude },
-      title: bathroom.name,
-      text: bathroom.scores.community.toFixed(1),
-      textColor: selected ? '#fffaf6' : palette.surface,
-      backgroundColor: selected ? palette.coral : palette.ink,
-    };
-  });
-
   return (
-    <View style={styles.mapWrap}>
-      <AppleMaps.View
-        key={`${center.latitude.toFixed(4)}-${center.longitude.toFixed(4)}`}
-        style={styles.map}
-        cameraPosition={{
-          coordinates: center,
-          zoom: 14,
-        }}
-        annotations={annotations}
-        colorScheme={AppleMaps.MapColorScheme.LIGHT}
-        properties={{
-          isMyLocationEnabled: locationGranted,
-          mapType: AppleMaps.MapType.STANDARD,
-        }}
-        uiSettings={{
-          compassEnabled: true,
-          myLocationButtonEnabled: locationGranted,
-          scaleBarEnabled: true,
-        }}
-        onAnnotationClick={(event) => {
-          if (event.id) {
-            onSelect(event.id);
-          }
-        }}
-      />
-      <Text style={styles.attribution}>Apple Maps · Refuge + Poopi data</Text>
+    <View style={styles.fallback}>
+      <Text style={styles.fallbackTitle}>Map coming to Android</Text>
+      <Text style={styles.fallbackText}>
+        Poopi now has a full browser map. Nearby bathroom results are still available here.
+      </Text>
+      <View style={styles.fallbackList}>
+        {bathrooms.slice(0, 5).map((bathroom) => (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ selected: bathroom.id === selectedId }}
+            key={bathroom.id}
+            onPress={() => onSelect(bathroom.id)}
+            style={[styles.fallbackRow, bathroom.id === selectedId && styles.selectedRow]}>
+            <Text style={styles.fallbackName} numberOfLines={1}>
+              {bathroom.name}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  mapWrap: {
-    height: 340,
-    borderRadius: 8,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: palette.line,
-    backgroundColor: palette.surface,
-  },
-  map: {
-    flex: 1,
-  },
-  attribution: {
-    position: 'absolute',
-    right: 10,
-    bottom: 8,
-    color: palette.ink,
-    fontSize: 11,
-    fontWeight: '900',
-    backgroundColor: 'rgba(255, 253, 248, 0.86)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
   fallback: {
     minHeight: 300,
     borderRadius: 8,
@@ -139,9 +76,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '900',
   },
-  fallbackScore: {
-    color: palette.jade,
-    fontSize: 15,
-    fontWeight: '900',
+  selectedRow: {
+    borderWidth: 1,
+    borderColor: palette.jade,
+    backgroundColor: palette.mint,
   },
 });

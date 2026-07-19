@@ -72,7 +72,7 @@ export function normalizeRefugeRestroom(record: RefugeRestroom): Bathroom {
     ],
     photos: [],
     reportsSummary: {},
-    scores: { community: 6, confidence, recommendation: 0.5 },
+    scores: { community: 6, communityReviewCount: 0, confidence, recommendation: 0.5 },
     userStatus: 'unvisited',
     lastConfirmedAt: record.updated_at,
   };
@@ -115,7 +115,7 @@ export function normalizeOsmToilet(element: OsmToiletElement): Bathroom {
     ],
     photos: [],
     reportsSummary: {},
-    scores: { community: 6, confidence, recommendation: 0.5 },
+    scores: { community: 6, communityReviewCount: 0, confidence, recommendation: 0.5 },
     userStatus: 'unvisited',
     lastConfirmedAt: tags.check_date ?? new Date().toISOString(),
   };

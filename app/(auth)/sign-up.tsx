@@ -1,25 +1,28 @@
 import { Link, Redirect, router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { GoogleAuthButton } from '@/components/app/GoogleAuthButton';
 import { palette } from '@/components/app/tokens';
 import { validateSignupInput } from '@/src/lib/profile';
 import { useAuth } from '@/src/providers/AuthProvider';
 
 export default function SignUpScreen() {
-  const { configured, profileComplete, session, signUp } = useAuth();
+  const { configured, profileComplete, session, signInWithGoogle, signUp } = useAuth();
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
   const [displayName, setDisplayName] = useState('');
-  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [googleSubmitting, setGoogleSubmitting] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
   const validation = useMemo(
-    () => validateSignupInput({ displayName, username, email, phone, password }),
-    [displayName, email, password, phone, username],
+    () => validateSignupInput({ firstName, lastName, dateOfBirth, displayName, email, password }),
+    [dateOfBirth, displayName, email, firstName, lastName, password],
   );
 
   if (!configured) {
@@ -42,7 +45,7 @@ export default function SignUpScreen() {
 
     setSubmitting(true);
     try {
-      const result = await signUp({ displayName, username, email, phone, password });
+      const result = await signUp({ firstName, lastName, dateOfBirth, displayName, email, password });
       if (result.needsEmailConfirmation) {
         setMessage('Check your email to confirm your account, then log in.');
       } else {
@@ -55,14 +58,55 @@ export default function SignUpScreen() {
     }
   }
 
+  async function submitGoogle() {
+    setError('');
+    setMessage('');
+    setGoogleSubmitting(true);
+    try {
+      await signInWithGoogle();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to continue with Google.');
+      setGoogleSubmitting(false);
+    }
+  }
+
   return (
-    <View style={styles.screen}>
+    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.screen}>
       <Text style={styles.title}>Create account</Text>
-      <Text style={styles.copy}>Your rankings start empty. Nearby bathrooms appear after location permission.</Text>
-      <Field value={displayName} onChangeText={setDisplayName} label="Display name" />
-      <Field value={username} onChangeText={setUsername} label="Username" autoCapitalize="none" />
+      <Text style={styles.copy}>
+        Your personal information stays private. Only your display name and bathroom ratings can appear publicly.
+      </Text>
+      <GoogleAuthButton loading={googleSubmitting} onPress={submitGoogle} />
+      <View style={styles.divider}>
+        <View style={styles.dividerLine} />
+        <Text style={styles.dividerText}>or use email</Text>
+        <View style={styles.dividerLine} />
+      </View>
+      <View style={styles.nameRow}>
+        <View style={styles.nameField}>
+          <Field value={firstName} onChangeText={setFirstName} label="First name" autoComplete="given-name" />
+        </View>
+        <View style={styles.nameField}>
+          <Field value={lastName} onChangeText={setLastName} label="Last name" autoComplete="family-name" />
+        </View>
+      </View>
+      <Field
+        value={dateOfBirth}
+        onChangeText={setDateOfBirth}
+        label="Date of birth"
+        placeholder="YYYY-MM-DD"
+        keyboardType="numbers-and-punctuation"
+      />
+      <Field
+        value={displayName}
+        onChangeText={setDisplayName}
+        label="Display name"
+        placeholder="poopi_fan"
+        autoCapitalize="none"
+        autoCorrect={false}
+      />
+      <Text style={styles.helper}>Public and unique. Friends will use this to find you.</Text>
       <Field value={email} onChangeText={setEmail} label="Email" autoCapitalize="none" keyboardType="email-address" />
-      <Field value={phone} onChangeText={setPhone} label="Phone (optional)" keyboardType="phone-pad" />
       <Field value={password} onChangeText={setPassword} label="Password" secureTextEntry />
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {message ? <Text style={styles.message}>{message}</Text> : null}
@@ -74,7 +118,7 @@ export default function SignUpScreen() {
           <Text style={styles.linkText}>Already have an account?</Text>
         </Pressable>
       </Link>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -90,10 +134,11 @@ function Field(props: React.ComponentProps<typeof TextInput> & { label: string }
 
 const styles = StyleSheet.create({
   screen: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
     gap: 10,
     padding: 24,
+    paddingVertical: 36,
     backgroundColor: palette.paper,
   },
   title: {
@@ -108,8 +153,31 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 6,
   },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginVertical: 2,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: palette.line,
+  },
+  dividerText: {
+    color: palette.muted,
+    fontSize: 12,
+    fontWeight: '800',
+  },
   field: {
     gap: 5,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  nameField: {
+    flex: 1,
   },
   label: {
     color: palette.ink,
@@ -125,6 +193,12 @@ const styles = StyleSheet.create({
     color: palette.ink,
     paddingHorizontal: 12,
     fontSize: 16,
+  },
+  helper: {
+    color: palette.muted,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: -4,
   },
   error: {
     color: palette.coral,

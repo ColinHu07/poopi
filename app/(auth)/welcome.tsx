@@ -1,15 +1,28 @@
 import { Link, Redirect, router } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator } from 'react-native';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { GoogleAuthButton } from '@/components/app/GoogleAuthButton';
 import { palette } from '@/components/app/tokens';
 import { useAuth } from '@/src/providers/AuthProvider';
 
 export default function WelcomeScreen() {
-  const { configured, continueAsGuest, isAnonymous, loading, profileComplete, session } = useAuth();
+  const { configured, continueAsGuest, isAnonymous, loading, profileComplete, session, signInWithGoogle } = useAuth();
   const [guestLoading, setGuestLoading] = useState(false);
   const [guestError, setGuestError] = useState('');
+  const [googleSubmitting, setGoogleSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  async function submitGoogle() {
+    setError('');
+    setGoogleSubmitting(true);
+    try {
+      await signInWithGoogle();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to continue with Google.');
+      setGoogleSubmitting(false);
+    }
+  }
 
   if (!loading && session && (isAnonymous || profileComplete)) {
     return <Redirect href="/(tabs)" />;
@@ -31,6 +44,13 @@ export default function WelcomeScreen() {
       <Text style={styles.copy}>
         Rank bathrooms, save access notes, and see real nearby restroom reports before you need them.
       </Text>
+
+      <GoogleAuthButton
+        disabled={!configured}
+        loading={googleSubmitting}
+        onPress={submitGoogle}
+      />
+      {error ? <Text style={styles.error}>{error}</Text> : null}
 
       {configured ? (
         <View style={styles.actions}>
@@ -65,9 +85,9 @@ export default function WelcomeScreen() {
         </View>
       ) : (
         <View style={styles.setupCard}>
-          <Text style={styles.setupTitle}>Supabase setup needed</Text>
+          <Text style={styles.setupTitle}>Google sign-in is ready for Supabase</Text>
           <Text style={styles.setupCopy}>
-            Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY, apply the schema, then restart Expo.
+            Finish connecting Supabase and enable its Google provider to turn on account creation.
           </Text>
         </View>
       )}
@@ -152,6 +172,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 23,
     fontWeight: '700',
+  },
+  error: {
+    color: palette.coral,
+    fontSize: 13,
+    fontWeight: '800',
   },
   actions: {
     gap: 10,

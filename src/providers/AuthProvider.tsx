@@ -5,6 +5,7 @@ import { isProfileComplete, type ProfileRecord, type SignupInput } from '@/src/l
 import {
   getCurrentProfile,
   signIn as signInWithService,
+  signInWithGoogle as signInWithGoogleService,
   signOut as signOutWithService,
   signUp as signUpWithService,
   upsertProfile,
@@ -20,6 +21,7 @@ interface AuthContextValue {
   isAnonymous: boolean;
   profileComplete: boolean;
   signIn: (input: { email: string; password: string }) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signUp: (input: SignupInput) => Promise<{ needsEmailConfirmation: boolean }>;
   signOut: () => Promise<void>;
   completeProfile: (input: ProfileInput) => Promise<void>;
@@ -64,7 +66,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
       }
       setSession(data.session);
       if (data.session && !data.session.user.is_anonymous) {
-        await refreshProfile();
+        try {
+          await refreshProfile();
+        } catch {
+          // OAuth can be configured before the profile schema is ready.
+          // Keep the authenticated session and send the user to profile setup.
+          setProfile(null);
+        }
       }
       setLoading(false);
     }
@@ -104,6 +112,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
         const data = await signInWithService(input);
         setSession(data.session);
         await refreshProfile();
+      },
+      async signInWithGoogle() {
+        await signInWithGoogleService();
       },
       async signUp(input) {
         const data = await signUpWithService(input);

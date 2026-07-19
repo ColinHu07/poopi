@@ -12,6 +12,16 @@ export default function Root({ children }: { children: ReactNode }) {
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+        <title>Poopi — Find a bathroom you can trust</title>
+        <meta
+          name="description"
+          content="Find nearby bathrooms, check access details, and share honest feedback about cleanliness, smell, privacy, supplies, and wait times."
+        />
+        <meta name="theme-color" content="#f8f7f2" />
+        <meta name="robots" content="index,follow" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="Poopi" />
 
         {/*
           Disable body scrolling on web. This makes ScrollView components work closer to how they do on native.
@@ -29,11 +39,23 @@ export default function Root({ children }: { children: ReactNode }) {
 }
 
 const responsiveBackground = `
+html, body, #root {
+  min-height: 100%;
+}
 body {
-  background-color: #fff;
+  margin: 0;
+  background-color: #f8f7f2;
+  color: #202124;
+}
+* {
+  box-sizing: border-box;
+}
+*:focus-visible {
+  outline: 3px solid #2d7dd2 !important;
+  outline-offset: 2px;
 }
 @media (prefers-color-scheme: dark) {
   body {
-    background-color: #000;
+    background-color: #f8f7f2;
   }
 }`;

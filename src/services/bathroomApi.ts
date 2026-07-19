@@ -6,12 +6,14 @@ import type {
   BathroomPhoto,
   FeatureTag,
   FeedItem,
+  RatingLabel,
   ReportReason,
   Sentiment,
   SourceRef,
   UserRating,
   Visit,
 } from '@/src/data/types';
+import { isRatingLabel } from '@/src/data/ratingLabels';
 import {
   applyEloComparison,
   rankCommunityComparisons,
@@ -62,7 +64,8 @@ type SupabaseBathroomRow = {
   last_confirmed_at: string | null;
   features?: FeatureTag[];
   source_refs?: SourceRef[];
-  community_score?: number;
+  community_score?: number | null;
+  community_review_count?: number;
   recommendation?: number;
   bathroom_features?: Array<{ feature: FeatureTag }>;
   bathroom_sources?: Array<{
@@ -310,7 +313,7 @@ export async function logVisit(input: {
   bathroomId: string;
   sentiment: Sentiment;
   publicNote: string;
-  tags: FeatureTag[];
+  tags: RatingLabel[];
   privateNote?: string;
 }): Promise<Visit> {
   if (!isUuid(input.bathroomId)) {
@@ -322,6 +325,11 @@ export async function logVisit(input: {
   if (userError || !userData.user) {
     throw userError ?? new Error('You need to be signed in to log a visit.');
   }
+
+  if (!input.tags.every(isRatingLabel)) {
+    throw new Error('One or more bathroom labels are not supported.');
+  }
+  const tags = [...new Set(input.tags)];
 
   const { data, error } = await client
     .from('visits')
@@ -339,11 +347,16 @@ export async function logVisit(input: {
     throw error;
   }
 
-  if (input.tags.length) {
-    await client.from('visit_tags').insert(input.tags.map((tag) => ({ visit_id: data.id, tag })));
+  if (tags.length) {
+    const { error: tagError } = await client
+      .from('visit_tags')
+      .insert(tags.map((tag) => ({ visit_id: data.id, tag })));
+    if (tagError) {
+      throw tagError;
+    }
   }
 
-  await client.from('user_bathroom_ratings').upsert(
+  const { error: ratingError } = await client.from('user_bathroom_ratings').upsert(
     {
       user_id: userData.user.id,
       bathroom_id: input.bathroomId,
@@ -353,6 +366,9 @@ export async function logVisit(input: {
     },
     { onConflict: 'user_id,bathroom_id', ignoreDuplicates: true },
   );
+  if (ratingError) {
+    throw ratingError;
+  }
 
   return {
     id: data.id,
@@ -361,7 +377,7 @@ export async function logVisit(input: {
     sentiment: data.sentiment,
     publicNote: data.public_note,
     privateNote: data.private_note,
-    tags: input.tags,
+    tags,
     companionIds: [],
     createdAt: data.created_at,
   };
@@ -440,6 +456,7 @@ async function applyCommunityComparisonScores(bathrooms: Bathroom[]): Promise<Ba
             ...bathroom.scores,
             community: community.score,
           },
+          communityReviewCount: Math.max(1, Math.round(community.comparisonWeight)),
         }
       : bathroom;
   });
@@ -557,25 +574,16 @@ function mapSupabaseBathroom(row: SupabaseBathroomRow): Bathroom {
           attribution: 'User submitted',
           moderationStatus: photo.moderation_status,
         }))
-      : [placeholderPhoto(row.id)],
+      : [],
     reportsSummary: {},
     scores: {
       community: Number(row.community_score ?? 6),
+      communityReviewCount: Number(row.community_review_count ?? 0),
       confidence: Number(row.confidence),
       recommendation: Number(row.recommendation ?? 0.5),
     },
     userStatus: 'unvisited',
     lastConfirmedAt: row.last_confirmed_at ?? new Date().toISOString(),
-  };
-}
-
-function placeholderPhoto(id: string): BathroomPhoto {
-  return {
-    id: `placeholder-${id}`,
-    url: 'https://images.unsplash.com/photo-1584622781564-1d987f7333c1?auto=format&fit=crop&w=1000&q=80',
-    alt: 'Restroom sign placeholder',
-    attribution: 'Unsplash placeholder',
-    moderationStatus: 'approved',
   };
 }
 

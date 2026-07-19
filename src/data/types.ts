@@ -43,6 +43,64 @@ export const FEATURE_TAGS = [
 
 export type FeatureTag = (typeof FEATURE_TAGS)[number];
 
+export const POSITIVE_RATING_LABELS = [
+  'sparkling_clean',
+  'fresh_smelling',
+  'well_stocked',
+  'great_soap',
+  'paper_towels',
+  'well_maintained',
+  'no_wait',
+  'short_line',
+  'plenty_of_stalls',
+  'easy_to_find',
+  'open_late',
+  'free_to_use',
+  'very_private',
+  'single_stall',
+  'strong_locks',
+  'minimal_stall_gaps',
+  'spacious',
+  'great_lighting',
+  'good_ventilation',
+  'hooks_and_shelves',
+  'gender_neutral',
+  'wheelchair_accessible',
+  'step_free',
+  'family_restroom',
+  'changing_table',
+  'menstrual_products',
+  'touchless_fixtures',
+  'bidet',
+  'luxury_bathroom',
+  'hidden_gem',
+] as const;
+
+export const NEGATIVE_RATING_LABELS = [
+  'dirty',
+  'smelly',
+  'poorly_stocked',
+  'no_toilet_paper',
+  'no_soap',
+  'long_line',
+  'crowded',
+  'hard_to_find',
+  'customers_only',
+  'broken_lock',
+  'little_privacy',
+  'cramped',
+  'poor_lighting',
+  'poor_ventilation',
+  'out_of_order',
+  'felt_unsafe',
+] as const;
+
+export const RATING_LABELS = [...POSITIVE_RATING_LABELS, ...NEGATIVE_RATING_LABELS] as const;
+
+export type PositiveRatingLabel = (typeof POSITIVE_RATING_LABELS)[number];
+export type NegativeRatingLabel = (typeof NEGATIVE_RATING_LABELS)[number];
+export type RatingLabel = (typeof RATING_LABELS)[number];
+
 export type SourceName =
   | 'osm'
   | 'refuge'
@@ -87,6 +145,7 @@ export interface ScoreBundle {
   personal?: number;
   friends?: number;
   community: number;
+  communityReviewCount?: number;
   confidence: number;
   recommendation: number;
 }
@@ -134,7 +193,7 @@ export interface Visit {
   sentiment: Sentiment;
   publicNote: string;
   privateNote?: string;
-  tags: FeatureTag[];
+  tags: RatingLabel[];
   companionIds: string[];
   createdAt: string;
 }

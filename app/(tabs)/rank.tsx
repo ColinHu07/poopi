@@ -2,15 +2,18 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ScorePill } from '@/components/app/ScorePill';
+import { AuthRequired } from '@/components/app/AuthRequired';
 import { Screen } from '@/components/app/Screen';
 import { TagChip } from '@/components/app/TagChip';
 import { palette, shadow } from '@/components/app/tokens';
 import type { Bathroom, UserRating } from '@/src/data/types';
 import { getRankedBathrooms, recordComparison } from '@/src/services/bathroomApi';
+import { useAuth } from '@/src/providers/AuthProvider';
 
 type RankedItem = { bathroom: Bathroom; rating: UserRating; score: number; rank: number };
 
 export default function RankScreen() {
+  const { session } = useAuth();
   const [ranked, setRanked] = useState<RankedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -40,6 +43,15 @@ export default function RankScreen() {
 
   const left = ranked[0]?.bathroom;
   const right = ranked[1]?.bathroom;
+
+  if (!session) {
+    return (
+      <AuthRequired
+        title="Rank your bathroom visits"
+        description="Log in to build your personal ranking, compare bathrooms, and keep your history synced across devices."
+      />
+    );
+  }
 
   return (
     <Screen kicker="Personal score" title="Your rankings" right={<ScorePill label="top" value={ranked[0]?.score} />}>

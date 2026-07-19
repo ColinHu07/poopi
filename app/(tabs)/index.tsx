@@ -1,6 +1,7 @@
 import * as Location from 'expo-location';
+import { Link } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
 import { BathroomCard } from '@/components/app/BathroomCard';
 import { BathroomMap } from '@/components/app/BathroomMap';
@@ -8,6 +9,7 @@ import { Screen } from '@/components/app/Screen';
 import { TagChip } from '@/components/app/TagChip';
 import { palette } from '@/components/app/tokens';
 import type { Bathroom, BathroomFilters } from '@/src/data/types';
+import { useAuth } from '@/src/providers/AuthProvider';
 import { DEFAULT_MAP_CENTER, getNearbyBathrooms } from '@/src/services/bathroomApi';
 
 const FILTERS: Array<{ id: keyof BathroomFilters; label: string }> = [
@@ -23,19 +25,34 @@ const FILTERS: Array<{ id: keyof BathroomFilters; label: string }> = [
 ];
 
 export default function MapScreen() {
-  const [filters, setFilters] = useState<BathroomFilters>({ openNow: true });
+  const { width } = useWindowDimensions();
+  const { session } = useAuth();
+  const [filters, setFilters] = useState<BathroomFilters>({});
   const [center, setCenter] = useState(DEFAULT_MAP_CENTER);
   const [bathrooms, setBathrooms] = useState<Bathroom[]>([]);
   const [selectedId, setSelectedId] = useState<string>();
+  const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [locationLoading, setLocationLoading] = useState(true);
   const [locationGranted, setLocationGranted] = useState(false);
   const [error, setError] = useState('');
 
+  const visibleBathrooms = useMemo(() => {
+    const normalizedQuery = query.trim().toLocaleLowerCase();
+    if (!normalizedQuery) {
+      return bathrooms;
+    }
+    return bathrooms.filter((bathroom) =>
+      [bathroom.name, bathroom.address, bathroom.neighborhood, bathroom.city]
+        .filter(Boolean)
+        .some((value) => value.toLocaleLowerCase().includes(normalizedQuery)),
+    );
+  }, [bathrooms, query]);
   const selected = useMemo(
-    () => bathrooms.find((bathroom) => bathroom.id === selectedId),
-    [bathrooms, selectedId],
+    () => visibleBathrooms.find((bathroom) => bathroom.id === selectedId),
+    [selectedId, visibleBathrooms],
   );
+  const wideLayout = width >= 900;
 
   useEffect(() => {
     resolveLocation();
@@ -107,7 +124,34 @@ export default function MapScreen() {
     <Screen
       kicker={locationGranted ? 'Nearby now' : 'New York fallback'}
       title="Nearby bathrooms"
-      right={<TagChip label={`${bathrooms.length} results`} tone="info" />}>
+      right={
+        <View style={styles.headerActions}>
+          <TagChip label={`${visibleBathrooms.length} results`} tone="info" />
+          {!session ? (
+            <Link href={'/sign-in' as any} asChild>
+              <Pressable accessibilityRole="link" style={styles.loginButton}>
+                <Text style={styles.loginButtonText}>Log in</Text>
+              </Pressable>
+            </Link>
+          ) : null}
+        </View>
+      }>
+      <View style={styles.searchBox}>
+        <Text style={styles.searchIcon}>⌕</Text>
+        <TextInput
+          accessibilityLabel="Search nearby bathrooms"
+          autoCapitalize="none"
+          autoCorrect={false}
+          clearButtonMode="while-editing"
+          onChangeText={setQuery}
+          placeholder="Search names, neighborhoods, or addresses"
+          placeholderTextColor={palette.muted}
+          returnKeyType="search"
+          style={styles.searchInput}
+          value={query}
+        />
+      </View>
+
       <View style={styles.filterRow}>
         {FILTERS.map((filter) => {
           const active = Boolean(filters[filter.id]);
@@ -134,51 +178,106 @@ export default function MapScreen() {
         </View>
       ) : null}
 
-      <BathroomMap
-        bathrooms={bathrooms}
-        center={center}
-        locationGranted={locationGranted}
-        selectedId={selectedId}
-        onSelect={setSelectedId}
-      />
+      <View style={[styles.discoveryLayout, wideLayout && styles.discoveryLayoutWide]}>
+        <View style={[styles.mapColumn, wideLayout && styles.mapColumnWide]}>
+          <BathroomMap
+            bathrooms={visibleBathrooms}
+            center={center}
+            locationGranted={locationGranted}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+          />
 
-      {loading ? (
-        <View style={styles.statusPanel}>
-          <ActivityIndicator color={palette.jade} />
-          <Text style={styles.statusText}>Loading real bathroom reports...</Text>
+          {loading ? (
+            <View style={styles.statusPanel}>
+              <ActivityIndicator color={palette.jade} />
+              <Text style={styles.statusText}>Loading real bathroom reports...</Text>
+            </View>
+          ) : error ? (
+            <View style={styles.empty}>
+              <Text style={styles.emptyTitle}>Could not load bathrooms</Text>
+              <Text style={styles.emptyText}>{error}</Text>
+            </View>
+          ) : selected ? (
+            <View style={styles.selectedWrap}>
+              <Text style={styles.sectionLabel}>Selected bathroom</Text>
+              <BathroomCard bathroom={selected} />
+            </View>
+          ) : (
+            <View style={styles.empty}>
+              <Text style={styles.emptyTitle}>
+                {visibleBathrooms.length ? 'Choose a bathroom' : query ? 'No matching bathrooms' : 'No bathrooms found'}
+              </Text>
+              <Text style={styles.emptyText}>
+                {visibleBathrooms.length
+                  ? 'Tap a marker or result to see access notes and details.'
+                  : query
+                    ? 'Try a shorter search or clear some filters.'
+                    : 'Try fewer filters or enable location for a better search.'}
+              </Text>
+            </View>
+          )}
         </View>
-      ) : error ? (
-        <View style={styles.empty}>
-          <Text style={styles.emptyTitle}>Could not load bathrooms</Text>
-          <Text style={styles.emptyText}>{error}</Text>
-        </View>
-      ) : selected ? (
-        <View style={styles.selectedWrap}>
-          <Text style={styles.sectionLabel}>Selected</Text>
-          <BathroomCard bathroom={selected} />
-        </View>
-      ) : (
-        <View style={styles.empty}>
-          <Text style={styles.emptyTitle}>{bathrooms.length ? 'Tap a marker' : 'No bathrooms found'}</Text>
-          <Text style={styles.emptyText}>
-            {bathrooms.length
-              ? 'Pick a real nearby bathroom to see access notes and log a visit.'
-              : 'Try fewer filters or enable location for a better search.'}
-          </Text>
-        </View>
-      )}
 
-      <View style={styles.list}>
-        <Text style={styles.sectionLabel}>Nearby results</Text>
-        {bathrooms.map((bathroom) => (
-          <BathroomCard key={bathroom.id} bathroom={bathroom} compact onPress={() => setSelectedId(bathroom.id)} />
-        ))}
+        <View style={[styles.list, wideLayout && styles.listWide]}>
+          <View style={styles.resultsHeader}>
+            <Text style={styles.sectionLabel}>Nearby results</Text>
+            <Text style={styles.resultsHint}>Best matches first</Text>
+          </View>
+          {visibleBathrooms.map((bathroom) => (
+            <BathroomCard
+              key={bathroom.id}
+              bathroom={bathroom}
+              compact
+              onPress={() => setSelectedId(bathroom.id)}
+            />
+          ))}
+        </View>
       </View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  loginButton: {
+    minHeight: 36,
+    borderRadius: 9,
+    backgroundColor: palette.ink,
+    paddingHorizontal: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loginButtonText: {
+    color: palette.surface,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  searchBox: {
+    minHeight: 50,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.surface,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+  },
+  searchIcon: {
+    color: palette.muted,
+    fontSize: 22,
+  },
+  searchInput: {
+    flex: 1,
+    minHeight: 48,
+    color: palette.ink,
+    fontSize: 15,
+  },
   filterRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -262,8 +361,35 @@ const styles = StyleSheet.create({
   selectedWrap: {
     gap: 10,
   },
+  discoveryLayout: {
+    gap: 18,
+  },
+  discoveryLayoutWide: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  mapColumn: {
+    gap: 14,
+  },
+  mapColumnWide: {
+    flex: 1.25,
+  },
   list: {
     gap: 10,
+  },
+  listWide: {
+    flex: 0.75,
+  },
+  resultsHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  resultsHint: {
+    color: palette.muted,
+    fontSize: 12,
+    fontWeight: '700',
   },
   sectionLabel: {
     color: palette.ink,
