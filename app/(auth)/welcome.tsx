@@ -21,9 +21,12 @@ export default function WelcomeScreen() {
   return (
     <View style={styles.screen}>
       <View style={styles.brandMark}>
-        <Text style={styles.brandGlyph}>p</Text>
+        <View style={styles.flattenedPTopSerif} />
+        <View style={styles.flattenedPStem} />
+        <View style={styles.flattenedPBowl} />
+        <View style={styles.flattenedPBottomSerif} />
       </View>
-      <Text style={styles.logo}>Poopi</Text>
+      <Text style={styles.logo}>poopi</Text>
       <Text style={styles.title}>Find the bathroom that will not betray you.</Text>
       <Text style={styles.copy}>
         Rank bathrooms, save access notes, and see real nearby restroom reports before you need them.
@@ -81,26 +84,61 @@ const styles = StyleSheet.create({
     backgroundColor: palette.paper,
   },
   brandMark: {
-    width: 64,
-    height: 64,
-    borderRadius: 8,
-    backgroundColor: palette.mint,
+    width: 76,
+    height: 76,
+    borderRadius: 18,
+    backgroundColor: '#f8f7f2',
     alignItems: 'center',
-    justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#b6dfd4',
+    borderColor: palette.line,
+    position: 'relative',
+    overflow: 'hidden',
   },
-  brandGlyph: {
-    color: palette.jade,
-    fontSize: 42,
-    lineHeight: 46,
-    fontWeight: '900',
-    fontFamily: 'SpaceMono',
+  flattenedPStem: {
+    position: 'absolute',
+    top: 17,
+    left: 17,
+    width: 15,
+    height: 48,
+    backgroundColor: '#596169',
+  },
+  flattenedPBowl: {
+    position: 'absolute',
+    top: 23,
+    left: 28,
+    width: 37,
+    height: 31,
+    borderWidth: 9,
+    borderLeftWidth: 0,
+    borderColor: '#596169',
+    borderTopRightRadius: 18,
+    borderBottomRightRadius: 18,
+  },
+  flattenedPTopSerif: {
+    position: 'absolute',
+    zIndex: 2,
+    top: 14,
+    left: 12,
+    width: 29,
+    height: 7,
+    backgroundColor: '#596169',
+  },
+  flattenedPBottomSerif: {
+    position: 'absolute',
+    zIndex: 2,
+    top: 62,
+    left: 12,
+    width: 29,
+    height: 7,
+    backgroundColor: '#596169',
   },
   logo: {
-    color: palette.ink,
-    fontSize: 24,
-    fontWeight: '900',
+    color: '#596169',
+    fontSize: 38,
+    lineHeight: 42,
+    fontWeight: '700',
+    fontFamily: 'Georgia',
+    letterSpacing: -2,
   },
   title: {
     color: palette.ink,
