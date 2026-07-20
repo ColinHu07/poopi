@@ -1,7 +1,7 @@
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.110.0';
 
 export type CanonicalBathroomInput = {
-  sourceName: 'refuge' | 'osm' | 'user';
+  sourceName: 'refuge' | 'osm' | 'google_live' | 'user';
   sourceId: string;
   fetchedAt: string;
   license: string;
