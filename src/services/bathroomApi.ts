@@ -307,14 +307,100 @@ export async function getLists(): Promise<Array<BathroomList & { bathrooms: Bath
     return [];
   }
 
-  return data.map((list: any) => ({
-    id: list.id,
-    title: list.title,
-    description: list.description,
-    visibility: list.visibility,
-    bathroomIds: list.list_items.map((item: any) => item.bathroom_id),
-    bathrooms: [],
-  }));
+  return Promise.all(
+    data.map(async (list: any) => {
+      const bathroomIds = [...list.list_items]
+        .sort((left: any, right: any) => left.position - right.position)
+        .map((item: any) => item.bathroom_id);
+      const bathrooms = (await Promise.all(bathroomIds.map((bathroomId: string) => getBathroomById(bathroomId)))).filter(
+        Boolean,
+      ) as Bathroom[];
+      return {
+        id: list.id,
+        title: list.title,
+        description: list.description,
+        visibility: list.visibility,
+        bathroomIds,
+        bathrooms,
+      };
+    }),
+  );
+}
+
+export async function isBathroomSaved(bathroomId: string): Promise<boolean> {
+  if (!isUuid(bathroomId) || !isSupabaseConfigured || !supabase) return false;
+  const user = await requirePermanentUser('view saved bathrooms');
+  const listId = await getSavedListId(user.id);
+  if (!listId) return false;
+  const { count, error } = await supabase
+    .from('list_items')
+    .select('bathroom_id', { count: 'exact', head: true })
+    .eq('list_id', listId)
+    .eq('bathroom_id', bathroomId);
+  if (error) throw error;
+  return (count ?? 0) > 0;
+}
+
+export async function toggleBathroomSaved(bathroomId: string): Promise<boolean> {
+  if (!isUuid(bathroomId)) {
+    throw new Error('This bathroom needs to be imported into Poopi before it can be saved.');
+  }
+  const client = requireSupabase();
+  const user = await requirePermanentUser('save a bathroom');
+  let listId = await getSavedListId(user.id);
+  if (!listId) {
+    const { data, error } = await client
+      .from('lists')
+      .insert({
+        owner_user_id: user.id,
+        title: 'Saved',
+        description: 'Bathrooms you want to remember.',
+        visibility: 'private',
+      })
+      .select('id')
+      .single();
+    if (error || !data) throw error ?? new Error('Unable to create your Saved list.');
+    listId = data.id;
+  }
+
+  const { count, error: lookupError } = await client
+    .from('list_items')
+    .select('bathroom_id', { count: 'exact', head: true })
+    .eq('list_id', listId)
+    .eq('bathroom_id', bathroomId);
+  if (lookupError) throw lookupError;
+
+  if ((count ?? 0) > 0) {
+    const { error } = await client.from('list_items').delete().eq('list_id', listId).eq('bathroom_id', bathroomId);
+    if (error) throw error;
+    return false;
+  }
+
+  const { count: itemCount } = await client
+    .from('list_items')
+    .select('bathroom_id', { count: 'exact', head: true })
+    .eq('list_id', listId);
+  const { error } = await client.from('list_items').insert({
+    list_id: listId,
+    bathroom_id: bathroomId,
+    position: itemCount ?? 0,
+  });
+  if (error) throw error;
+  return true;
+}
+
+async function getSavedListId(userId: string): Promise<string | undefined> {
+  const client = requireSupabase();
+  const { data, error } = await client
+    .from('lists')
+    .select('id')
+    .eq('owner_user_id', userId)
+    .eq('title', 'Saved')
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.id;
 }
 
 export async function getProfileSummary(): Promise<ProfileSummary> {
@@ -502,6 +588,8 @@ export async function logVisit(input: {
     throw error;
   }
 
+  bathroomCache.delete(input.bathroomId);
+
   return {
     id: String(visitId),
     bathroomId: input.bathroomId,
@@ -607,7 +695,7 @@ async function applyCommunityComparisonScores(bathrooms: Bathroom[]): Promise<Ba
   });
 }
 
-export async function createReport(bathroomId: string, reason: ReportReason): Promise<void> {
+export async function createReport(bathroomId: string, reason: ReportReason, details = ''): Promise<void> {
   if (!isUuid(bathroomId)) {
     throw new Error('This bathroom needs to be imported into Poopi before it can be reported.');
   }
@@ -619,6 +707,7 @@ export async function createReport(bathroomId: string, reason: ReportReason): Pr
     bathroom_id: bathroomId,
     user_id: user.id,
     reason,
+    details,
   });
   if (error) {
     throw error;

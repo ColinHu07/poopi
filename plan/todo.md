@@ -23,24 +23,23 @@
 - Supabase email/password and Google OAuth authentication, anonymous guest sessions, profile completion, PostGIS schema, and row-level security.
 - Persistent anonymous comparison identities, permanent-account contribution gates, and a privacy-safe public review API that excludes user IDs and private notes.
 - Five tabs: Map, Rank, Feed, Lists, and Profile, with account-only actions gated at the point of use.
-- Bathroom details with access information, features, source provenance, confidence, and photos/placeholders.
-- Visit logging with sentiment, quick tags, and a public note, including an entry point that searches existing Poopi bathrooms.
-- Explicit OpenStreetMap venue/address search, editable place confirmation, and manual missing-bathroom entry using an address or the user's current location.
+- Trust-focused bathroom details with status, approximate distance/walking ETA, directions, access, condition summaries, confidence, sources, common labels, and anonymous public reviews.
+- Structured visit logging with sentiment, required cleanliness/smell/privacy ratings, wait, status, observed access, visibility, good/bad labels, public notes, and private notes.
+- Explicit OpenStreetMap venue/address search, automatic current-venue suggestions, editable place confirmation, a draggable web location pin, and manual missing-bathroom entry.
+- Private Save/Unsave backed by a system-created Saved list, hydrated list contents, and signed-in reporting with moderation-friendly reasons.
 - Recency-weighted bathroom summaries with dimension scores, median recent wait, review count, freshness, confidence, and expiring operating status.
 - Personal Elo-style rankings plus weighted community Bradley-Terry aggregation from pairwise votes.
 - Canonical UUID persistence for Refuge, OpenStreetMap, and user-created candidates, with shared normalization, cross-source deduplication, and source provenance.
 - Responsive static web export and Sites packaging for phone-browser testing.
-- `npm run typecheck` passes and all 45 current automated tests pass.
+- `npm run typecheck` passes and all 47 current automated tests pass.
 
 ### Incomplete or misleading today
 
-- Save and Report buttons on bathroom details are not connected.
-- Lists can be read but cannot be created or populated; returned lists do not hydrate their bathrooms.
+- Lists hydrate their bathrooms and support the private Saved collection, but users cannot create or edit custom lists yet.
 - Follows and feed tables exist, but there is no friend discovery and visits do not produce a followed-friends feed.
 - Community comparison aggregation still needs a server-side cache for scale.
-- Public reviews have a privacy-safe read API, but bathroom details do not render the review list yet.
 - Free-form opening hours still need reliable parsing; until then, the app presents operating status as unknown unless a recent observation confirms it.
-- There is no destination search, distance/ETA, directions action, “search this area,” map clustering, or map/list bottom sheet.
+- The main map still lacks destination search, “search this area,” clustering, and a synchronized map/list bottom sheet.
 - Photo tables and moderation copy exist, but there is no storage/upload workflow.
 - Android still receives a list fallback instead of a functional map.
 
@@ -117,11 +116,11 @@ This is the complete launch set of 46 labels. The picker separates good and bad 
 
 ### Details, reviews, and corrections
 
-- [ ] **P0 · REVIEW-01 — Redesign bathroom details around trust** — Owner: `@unassigned` · Depends on: DATA-02, MAP-04 · Done when: details prioritize current status, distance/ETA, directions, access/cost, recent condition summaries, confidence, last confirmation, public reviews, and source attribution. PR: —
-- [ ] **P0 · REVIEW-02 — Build the sub-30-second review flow** — Owner: `@unassigned` · Depends on: DATA-01 · Done when: a signed-in user must choose an overall rating before the optional label picker appears, can browse the complete 46-label good/bad catalog, and can submit the rating, structured observations, visibility, labels, and optional note with accessible controls and clear validation. PR: —
-- [ ] **P0 · REVIEW-03 — Publish and aggregate safe reviews** — Owner: `@unassigned` · Depends on: DATA-02, DATA-03, REVIEW-02 · Done when: public reviews appear on details and update summaries immediately, commonly selected good/bad labels are aggregated only from valid ratings, friends/private reviews respect visibility, and private notes never leave owner-scoped queries. PR: —
-- [ ] **P0 · REVIEW-04 — Connect reporting and missing-bathroom flows** — Owner: `@codex` · Depends on: DATA-03, DATA-04, MAP-02 · Done when: “Rate a bathroom” can start even when no map point exists; with permission, the app suggests the user’s current venue, checks nearby canonical bathrooms, and asks for confirmation before attaching the rating; without a reliable match, the user can search or manually enter and edit the venue name, address, and map pin before creation. Signed-in users can also report closed, out-of-order, unsafe, inaccessible, inaccurate, duplicate, or privacy issues and receive a clear success/error state. Partial: missing venues can now be searched, confirmed/edited, created or deduplicated, and continued into rating; current-venue suggestions, map-pin editing, and reporting remain. PR: [#10](https://github.com/ColinHu07/poopi/pull/10)
-- [ ] **P0 · REVIEW-05 — Wire a minimal private save action** — Owner: `@unassigned` · Depends on: DATA-03, DATA-04 · Done when: a signed-in user can save/unsave any bathroom to one private system-created `Saved` collection and the detail button always reflects the persisted state. PR: —
+- [x] **P0 · REVIEW-01 — Redesign bathroom details around trust** — Owner: `@codex` · Depends on: DATA-02, MAP-04 · Done when: details prioritize current status, distance/ETA, directions, access/cost, recent condition summaries, confidence, last confirmation, public reviews, and source attribution. PR: [#12](https://github.com/ColinHu07/poopi/pull/12)
+- [x] **P0 · REVIEW-02 — Build the sub-30-second review flow** — Owner: `@codex` · Depends on: DATA-01 · Done when: a signed-in user must choose an overall rating before the optional label picker appears, can browse the complete 46-label good/bad catalog, and can submit the rating, structured observations, visibility, labels, and optional note with accessible controls and clear validation. PR: [#12](https://github.com/ColinHu07/poopi/pull/12)
+- [x] **P0 · REVIEW-03 — Publish and aggregate safe reviews** — Owner: `@codex` · Depends on: DATA-02, DATA-03, REVIEW-02 · Done when: public reviews appear on details and update summaries immediately, commonly selected good/bad labels are aggregated only from valid ratings, friends/private reviews respect visibility, and private notes never leave owner-scoped queries. PR: [#12](https://github.com/ColinHu07/poopi/pull/12)
+- [x] **P0 · REVIEW-04 — Connect reporting and missing-bathroom flows** — Owner: `@codex` · Depends on: DATA-03, DATA-04, MAP-02 · Done when: “Rate a bathroom” can start even when no map point exists; with permission, the app suggests the user’s current venue, checks nearby canonical bathrooms, and asks for confirmation before attaching the rating; without a reliable match, the user can search or manually enter and edit the venue name, address, and map pin before creation. Signed-in users can also report closed, out-of-order, unsafe, inaccessible, inaccurate, duplicate, or privacy issues and receive a clear success/error state. PR: [#10](https://github.com/ColinHu07/poopi/pull/10), [#12](https://github.com/ColinHu07/poopi/pull/12)
+- [x] **P0 · REVIEW-05 — Wire a minimal private save action** — Owner: `@codex` · Depends on: DATA-03, DATA-04 · Done when: a signed-in user can save/unsave any bathroom to one private system-created `Saved` collection and the detail button always reflects the persisted state. PR: [#12](https://github.com/ColinHu07/poopi/pull/12)
 
 ### Reliability, accessibility, and validation
 
