@@ -163,6 +163,8 @@ export interface Bathroom {
   longitude: number;
   distanceMeters?: number;
   access: AccessType;
+  /** Explicit cost fact. Undefined means the fee is unknown. */
+  feeRequired?: boolean;
   priceNote: string;
   openingHours: string;
   isOpenNow: boolean;

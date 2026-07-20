@@ -22,6 +22,7 @@ import { isRatingLabel } from '@/src/data/ratingLabels';
 import { normalizeBathroomFeatures } from '@/src/data/bathroomFeatures';
 import { isDimensionRating, isOperatingStatus, isWaitBucket } from '@/src/data/visitObservations';
 import { freshnessState } from '@/src/lib/bathroomSummary';
+import { matchesBathroomFilters } from '@/src/lib/bathroomFilters';
 import {
   applyEloComparison,
   rankCommunityComparisons,
@@ -30,7 +31,6 @@ import {
   sortRatings,
 } from '@/src/lib/ranking';
 import { getCurrentProfile } from '@/src/services/auth';
-import { normalizeRefugeRestroom, type RefugeRestroom } from '@/src/services/sourceNormalizers';
 import {
   getOrCreateRatingUser,
   isSupabaseConfigured,
@@ -47,6 +47,7 @@ export const DEFAULT_MAP_CENTER = {
 export interface NearbyBathroomInput {
   latitude: number;
   longitude: number;
+  radiusMeters?: number;
   filters?: BathroomFilters;
 }
 
@@ -72,6 +73,7 @@ type SupabaseBathroomRow = {
   longitude?: number;
   distance_meters?: number | null;
   access: AccessType;
+  fee_required?: boolean | null;
   price_note: string;
   opening_hours: string;
   confidence: number;
@@ -117,17 +119,8 @@ export async function getNearbyBathrooms(input: NearbyBathroomInput): Promise<Ba
   let bathrooms = isSupabaseConfigured ? await getNearbyFromSupabase(input).catch(() => []) : [];
 
   if (isSupabaseConfigured && bathrooms.length < 3) {
-    const imported = await invokeRefugeImport(input).catch(() => []);
-    bathrooms = imported.length ? imported : bathrooms;
-    if (bathrooms.length < 3) {
-      const refreshed = await getNearbyFromSupabase(input).catch(() => []);
-      bathrooms = refreshed.length > bathrooms.length ? refreshed : bathrooms;
-    }
-  }
-
-  if (bathrooms.length < 3) {
-    const refugeBathrooms = await fetchRefugeNearbyBathrooms(input).catch(() => []);
-    bathrooms = mergeBathrooms(bathrooms, refugeBathrooms);
+    await invokeNearbyImports(input).catch(() => undefined);
+    bathrooms = await getNearbyFromSupabase(input).catch(() => bathrooms);
   }
 
   bathrooms = await applyCommunityComparisonScores(bathrooms);
@@ -145,7 +138,7 @@ export async function getNearbyBathrooms(input: NearbyBathroomInput): Promise<Ba
         }),
       },
     }))
-    .filter((bathroom) => matchesFilters(bathroom, filters))
+    .filter((bathroom) => matchesBathroomFilters(bathroom, filters))
     .sort((a, b) => b.scores.recommendation - a.scores.recommendation)
     .map(cacheBathroom);
 }
@@ -161,7 +154,7 @@ export async function getBathroomById(id: string): Promise<Bathroom | undefined>
   const { data, error } = await supabase
     .from('bathrooms')
     .select(
-      'id, name, kind, address, neighborhood, city, access, price_note, opening_hours, confidence, directions_note, last_confirmed_at, bathroom_features(feature), bathroom_sources(source_name, source_id, fetched_at, license, confidence, confirmed_by_users, contradicted_by_users), photos(id, storage_path, alt, moderation_status)',
+      'id, name, kind, address, neighborhood, city, access, fee_required, price_note, opening_hours, confidence, directions_note, last_confirmed_at, bathroom_features(feature), bathroom_sources(source_name, source_id, fetched_at, license, confidence, confirmed_by_users, contradicted_by_users), photos(id, storage_path, alt, moderation_status)',
     )
     .eq('id', id)
     .maybeSingle();
@@ -192,7 +185,7 @@ export async function getRankedBathrooms(): Promise<
   const { data, error } = await supabase
     .from('user_bathroom_ratings')
     .select(
-      'bathroom_id, rating, comparisons, sentiment, bathrooms(id, name, kind, address, neighborhood, city, access, price_note, opening_hours, confidence, directions_note, last_confirmed_at, bathroom_features(feature), bathroom_sources(source_name, source_id, fetched_at, license, confidence, confirmed_by_users, contradicted_by_users), photos(id, storage_path, alt, moderation_status))',
+      'bathroom_id, rating, comparisons, sentiment, bathrooms(id, name, kind, address, neighborhood, city, access, fee_required, price_note, opening_hours, confidence, directions_note, last_confirmed_at, bathroom_features(feature), bathroom_sources(source_name, source_id, fetched_at, license, confidence, confirmed_by_users, contradicted_by_users), photos(id, storage_path, alt, moderation_status))',
     )
     .eq('user_id', userData.user.id);
 
@@ -335,26 +328,42 @@ export async function createBathroomCandidate(
 ) {
   const client = requireSupabase();
   await requirePermanentUser('add a bathroom');
-  const { data, error } = await client
-    .from('bathrooms')
-    .insert({
-      name: input.name,
-      kind: 'User submitted restroom',
-      address: input.address,
-      location: `POINT(${input.longitude} ${input.latitude})`,
-      access: input.access,
-      price_note: 'Unverified',
-      opening_hours: 'Unknown',
-      confidence: 0.35,
-      directions_note: '',
-    })
-    .select('id, name, kind, address, neighborhood, city, access, price_note, opening_hours, confidence, directions_note, last_confirmed_at')
-    .single();
+  const { data, error } = await client.rpc('upsert_canonical_bathroom', {
+    p_source_name: 'user',
+    p_source_id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    p_fetched_at: new Date().toISOString(),
+    p_license: 'User submitted',
+    p_name: input.name,
+    p_kind: 'User submitted restroom',
+    p_address: input.address,
+    p_neighborhood: '',
+    p_city: '',
+    p_latitude: input.latitude,
+    p_longitude: input.longitude,
+    p_access: input.access,
+    p_fee_required: null,
+    p_price_note: 'Unverified',
+    p_opening_hours: 'Unknown',
+    p_confidence: 0.35,
+    p_directions_note: '',
+    p_last_confirmed_at: null,
+    p_confirmed_by_users: 0,
+    p_contradicted_by_users: 0,
+    p_features: [],
+  });
 
   if (error) {
     throw error;
   }
-  return cacheBathroom(mapSupabaseBathroom({ ...data, latitude: input.latitude, longitude: input.longitude }));
+  const result = Array.isArray(data) ? data[0] : data;
+  if (!result?.bathroom_id) {
+    throw new Error('The bathroom could not be resolved to a Poopi location.');
+  }
+  const bathroom = await getBathroomById(String(result.bathroom_id));
+  if (!bathroom) {
+    throw new Error('The resolved bathroom could not be loaded.');
+  }
+  return bathroom;
 }
 
 export async function logVisit(input: {
@@ -565,6 +574,7 @@ async function getNearbyFromSupabase(input: NearbyBathroomInput): Promise<Bathro
     center_latitude: input.latitude,
     center_longitude: input.longitude,
     result_limit: 50,
+    radius_meters: input.radiusMeters ?? 5_000,
   });
 
   if (error || !data) {
@@ -574,40 +584,18 @@ async function getNearbyFromSupabase(input: NearbyBathroomInput): Promise<Bathro
   return (data as SupabaseBathroomRow[]).map(mapSupabaseBathroom).map(cacheBathroom);
 }
 
-async function invokeRefugeImport(input: NearbyBathroomInput): Promise<Bathroom[]> {
+async function invokeNearbyImports(input: NearbyBathroomInput): Promise<void> {
   const client = requireSupabase();
-  const { data, error } = await client.functions.invoke('import-refuge-nearby', {
-    body: {
-      latitude: input.latitude,
-      longitude: input.longitude,
-      perPage: 40,
-    },
-  });
-
-  if (error || !data?.bathrooms) {
-    return [];
-  }
-
-  return (data.bathrooms as SupabaseBathroomRow[]).map(mapSupabaseBathroom).map(cacheBathroom);
-}
-
-async function fetchRefugeNearbyBathrooms(input: NearbyBathroomInput): Promise<Bathroom[]> {
-  const url = new URL('https://www.refugerestrooms.org/api/v1/restrooms/by_location');
-  url.searchParams.set('lat', String(input.latitude));
-  url.searchParams.set('lng', String(input.longitude));
-  url.searchParams.set('page', '1');
-  url.searchParams.set('per_page', '40');
-  url.searchParams.set('offset', '0');
-
-  const response = await fetch(url.toString(), {
-    headers: { Accept: 'application/json' },
-  });
-  if (!response.ok) {
-    throw new Error(`Refuge request failed with ${response.status}.`);
-  }
-
-  const records = (await response.json()) as RefugeRestroom[];
-  return records.map(normalizeRefugeRestroom).map(cacheBathroom);
+  const body = {
+    latitude: input.latitude,
+    longitude: input.longitude,
+    radiusMeters: input.radiusMeters ?? 5_000,
+    perPage: 40,
+  };
+  await Promise.allSettled([
+    client.functions.invoke('import-refuge-nearby', { body }),
+    client.functions.invoke('import-osm-nearby', { body }),
+  ]);
 }
 
 function mapSupabaseBathroom(row: SupabaseBathroomRow): Bathroom {
@@ -647,6 +635,7 @@ function mapSupabaseBathroom(row: SupabaseBathroomRow): Bathroom {
     longitude: Number(row.longitude ?? DEFAULT_MAP_CENTER.longitude),
     distanceMeters: row.distance_meters == null ? undefined : Number(row.distance_meters),
     access: row.access,
+    feeRequired: row.fee_required ?? undefined,
     priceNote: row.price_note,
     openingHours: row.opening_hours,
     isOpenNow: operatingStatus === 'open',
@@ -685,24 +674,6 @@ function mapSupabaseBathroom(row: SupabaseBathroomRow): Bathroom {
     userStatus: 'unvisited',
     lastConfirmedAt,
   };
-}
-
-function matchesFilters(bathroom: Bathroom, filters: BathroomFilters): boolean {
-  if (filters.openNow && !bathroom.isOpenNow) return false;
-  if (filters.free && bathroom.access !== 'public') return false;
-  if (filters.wheelchair && !bathroom.features.includes('wheelchair_accessible')) return false;
-  if (filters.babyChanging && !bathroom.features.includes('baby_changing')) return false;
-  if (filters.allGender && !bathroom.features.includes('all_gender')) return false;
-  if (filters.singleStall && !bathroom.features.includes('single_stall')) return false;
-  if (filters.customersOnly && bathroom.access !== 'customers_only') return false;
-  if (filters.paid && bathroom.access !== 'paid') return false;
-  if (filters.highConfidence && bathroom.confidence < 0.8) return false;
-  return true;
-}
-
-function mergeBathrooms(primary: Bathroom[], fallback: Bathroom[]): Bathroom[] {
-  const seen = new Set(primary.map((bathroom) => bathroom.id));
-  return [...primary, ...fallback.filter((bathroom) => !seen.has(bathroom.id))];
 }
 
 function cacheBathroom<T extends Bathroom>(bathroom: T): T {

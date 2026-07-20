@@ -29,6 +29,9 @@ test('normalizeRefugeRestroom maps accessibility and changing table fields', () 
   assert.equal(bathroom.id, 'refuge-12');
   assert.deepEqual(bathroom.features.sort(), ['all_gender', 'baby_changing', 'single_stall', 'wheelchair_accessible'].sort());
   assert.equal(bathroom.sourceRefs[0].sourceName, 'refuge');
+  assert.equal(bathroom.feeRequired, undefined);
+  assert.equal(bathroom.lastConfirmedAt, undefined);
+  assert.equal(bathroom.summary.freshness, 'unknown');
 });
 
 test('normalizeOsmToilet maps fee and wheelchair tags', () => {
@@ -49,8 +52,23 @@ test('normalizeOsmToilet maps fee and wheelchair tags', () => {
 
   assert.equal(bathroom.access, 'paid');
   assert.equal(bathroom.priceNote, 'Fee reported');
+  assert.equal(bathroom.feeRequired, true);
+  assert.equal(bathroom.isOpenNow, false);
   assert.ok(bathroom.features.includes('wheelchair_accessible'));
   assert.ok(bathroom.features.includes('baby_changing'));
+});
+
+test('OSM cost and access facts remain independent', () => {
+  const bathroom = normalizeOsmToilet({
+    type: 'node',
+    id: 43,
+    lat: 40,
+    lon: -73,
+    tags: { amenity: 'toilets', access: 'customers', fee: 'no' },
+  });
+
+  assert.equal(bathroom.access, 'customers_only');
+  assert.equal(bathroom.feeRequired, false);
 });
 
 test('dedupe uses source ids, proximity, and normalized names', () => {
