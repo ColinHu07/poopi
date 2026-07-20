@@ -151,13 +151,23 @@ export async function getBathroomById(id: string): Promise<Bathroom | undefined>
     return undefined;
   }
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('bathrooms')
     .select(
       'id, name, kind, address, neighborhood, city, access, fee_required, price_note, opening_hours, confidence, directions_note, last_confirmed_at, bathroom_features(feature), bathroom_sources(source_name, source_id, fetched_at, license, confidence, confirmed_by_users, contradicted_by_users), photos(id, storage_path, alt, moderation_status)',
     )
     .eq('id', id)
     .maybeSingle();
+
+  if (error) {
+    ({ data, error } = await supabase
+      .from('bathrooms')
+      .select(
+        'id, name, kind, address, neighborhood, city, access, price_note, opening_hours, confidence, directions_note, last_confirmed_at, bathroom_features(feature), bathroom_sources(source_name, source_id, fetched_at, license, confidence, confirmed_by_users, contradicted_by_users), photos(id, storage_path, alt, moderation_status)',
+      )
+      .eq('id', id)
+      .maybeSingle());
+  }
 
   if (error || !data) {
     return undefined;
@@ -182,12 +192,25 @@ export async function getRankedBathrooms(): Promise<
     return [];
   }
 
-  const { data, error } = await supabase
+  const primaryRatingsResult = await supabase
     .from('user_bathroom_ratings')
     .select(
       'bathroom_id, rating, comparisons, sentiment, bathrooms(id, name, kind, address, neighborhood, city, access, fee_required, price_note, opening_hours, confidence, directions_note, last_confirmed_at, bathroom_features(feature), bathroom_sources(source_name, source_id, fetched_at, license, confidence, confirmed_by_users, contradicted_by_users), photos(id, storage_path, alt, moderation_status))',
     )
     .eq('user_id', userData.user.id);
+  let data: any[] | null = primaryRatingsResult.data;
+  let error = primaryRatingsResult.error;
+
+  if (error) {
+    const legacyRatingsResult = await supabase
+      .from('user_bathroom_ratings')
+      .select(
+        'bathroom_id, rating, comparisons, sentiment, bathrooms(id, name, kind, address, neighborhood, city, access, price_note, opening_hours, confidence, directions_note, last_confirmed_at, bathroom_features(feature), bathroom_sources(source_name, source_id, fetched_at, license, confidence, confirmed_by_users, contradicted_by_users), photos(id, storage_path, alt, moderation_status))',
+      )
+      .eq('user_id', userData.user.id);
+    data = legacyRatingsResult.data;
+    error = legacyRatingsResult.error;
+  }
 
   if (error || !data) {
     return [];
@@ -570,12 +593,20 @@ export async function getPublicBathroomReviews(bathroomId: string): Promise<Publ
 
 async function getNearbyFromSupabase(input: NearbyBathroomInput): Promise<Bathroom[]> {
   const client = requireSupabase();
-  const { data, error } = await client.rpc('nearby_bathrooms', {
+  let { data, error } = await client.rpc('nearby_bathrooms', {
     center_latitude: input.latitude,
     center_longitude: input.longitude,
     result_limit: 50,
     radius_meters: input.radiusMeters ?? 5_000,
   });
+
+  if (error) {
+    ({ data, error } = await client.rpc('nearby_bathrooms', {
+      center_latitude: input.latitude,
+      center_longitude: input.longitude,
+      result_limit: 50,
+    }));
+  }
 
   if (error || !data) {
     return [];
