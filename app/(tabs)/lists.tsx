@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { ActivityIndicator, Image, StyleSheet, Text, View } from 'react-native';
 
 import { Screen } from '@/components/app/Screen';
@@ -16,11 +17,26 @@ export default function ListsScreen() {
   const [lists, setLists] = useState<ListWithBathrooms[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    getLists()
-      .then(setLists)
-      .finally(() => setLoading(false));
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      if (!session || isAnonymous) {
+        setLoading(false);
+        return;
+      }
+      let cancelled = false;
+      setLoading(true);
+      getLists()
+        .then((nextLists) => {
+          if (!cancelled) setLists(nextLists);
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, [isAnonymous, session]),
+  );
 
   if (!session || isAnonymous) {
     return (

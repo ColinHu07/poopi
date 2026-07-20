@@ -26,6 +26,7 @@ interface NominatimResult {
 }
 
 const SEARCH_ENDPOINT = 'https://nominatim.openstreetmap.org/search';
+const REVERSE_ENDPOINT = 'https://nominatim.openstreetmap.org/reverse';
 const resultCache = new Map<string, PlaceSearchResult[]>();
 
 export function buildPlaceSearchUrl(query: string, center?: PlaceSearchCenter): string {
@@ -97,4 +98,27 @@ export async function searchPlaces(query: string, center?: PlaceSearchCenter): P
   const results = payload.map(mapNominatimResult).filter(Boolean) as PlaceSearchResult[];
   resultCache.set(cacheKey, results);
   return results;
+}
+
+export async function findCurrentPlace(center: PlaceSearchCenter): Promise<PlaceSearchResult | undefined> {
+  const cacheKey = `reverse|${center.latitude.toFixed(5)}|${center.longitude.toFixed(5)}`;
+  const cached = resultCache.get(cacheKey);
+  if (cached) return cached[0];
+
+  const url = new URL(REVERSE_ENDPOINT);
+  url.searchParams.set('lat', String(center.latitude));
+  url.searchParams.set('lon', String(center.longitude));
+  url.searchParams.set('format', 'jsonv2');
+  url.searchParams.set('addressdetails', '1');
+  url.searchParams.set('namedetails', '1');
+  url.searchParams.set('zoom', '18');
+  url.searchParams.set('accept-language', 'en');
+
+  const response = await fetch(url.toString(), { headers: { Accept: 'application/json' } });
+  if (!response.ok) {
+    throw new Error('We could not identify your current place. Search or enter it manually instead.');
+  }
+  const place = mapNominatimResult((await response.json()) as NominatimResult);
+  resultCache.set(cacheKey, place ? [place] : []);
+  return place;
 }

@@ -7,9 +7,18 @@ import { ActivityIndicator, Linking, Platform, Pressable, StyleSheet, Text, Text
 import { AuthRequired } from '@/components/app/AuthRequired';
 import { BathroomCard } from '@/components/app/BathroomCard';
 import { RatingLabelPicker } from '@/components/app/RatingLabelPicker';
+import { LocationPinEditor } from '@/components/app/LocationPinEditor';
 import { Section, Screen } from '@/components/app/Screen';
 import { palette } from '@/components/app/tokens';
-import type { AccessType, Bathroom, RatingLabel, Sentiment } from '@/src/data/types';
+import type {
+  AccessType,
+  Bathroom,
+  OperatingStatus,
+  RatingLabel,
+  Sentiment,
+  VisitVisibility,
+  WaitBucket,
+} from '@/src/data/types';
 import { useAuth } from '@/src/providers/AuthProvider';
 import {
   createBathroomCandidate,
@@ -18,7 +27,13 @@ import {
   getNearbyBathrooms,
   logVisit,
 } from '@/src/services/bathroomApi';
-import { type PlaceSearchCenter, type PlaceSearchResult, searchPlaces } from '@/src/services/placeSearch';
+import {
+  findCurrentPlace,
+  type PlaceSearchCenter,
+  type PlaceSearchResult,
+  searchPlaces,
+} from '@/src/services/placeSearch';
+import { STATUS_LABELS, WAIT_LABELS } from '@/src/lib/bathroomSummary';
 
 const SENTIMENTS: Array<{ id: Sentiment; label: string }> = [
   { id: 'liked', label: 'Liked' },
@@ -33,6 +48,25 @@ const ACCESS_OPTIONS: Array<{ id: AccessType; label: string }> = [
   { id: 'unknown', label: 'Not sure' },
 ];
 
+const OBSERVED_ACCESS_OPTIONS: Array<{ id: AccessType; label: string }> = [
+  { id: 'public', label: 'Public' },
+  { id: 'customers_only', label: 'Customers only' },
+  { id: 'purchase_required', label: 'Purchase required' },
+  { id: 'paid', label: 'Paid' },
+  { id: 'code_required', label: 'Code required' },
+  { id: 'staff_permission', label: 'Ask staff' },
+  { id: 'members_only', label: 'Members only' },
+  { id: 'unknown', label: 'Not sure' },
+];
+
+const WAIT_OPTIONS: WaitBucket[] = ['none', 'under_five', 'five_to_ten', 'ten_to_twenty', 'over_twenty'];
+const STATUS_OPTIONS: OperatingStatus[] = ['open', 'closed', 'partly_out_of_order', 'out_of_order', 'unknown'];
+const VISIBILITY_OPTIONS: Array<{ id: VisitVisibility; label: string; description: string }> = [
+  { id: 'public', label: 'Public', description: 'Helps everyone' },
+  { id: 'friends', label: 'Friends', description: 'Friends only' },
+  { id: 'private', label: 'Private', description: 'Only you' },
+];
+
 interface PlaceDraft {
   name: string;
   address: string;
@@ -41,6 +75,7 @@ interface PlaceDraft {
   access: AccessType;
   source: 'place-search' | 'manual';
   useCurrentLocation: boolean;
+  pinAdjusted: boolean;
 }
 
 export default function ModalScreen() {
@@ -54,11 +89,20 @@ export default function ModalScreen() {
   const [placeResults, setPlaceResults] = useState<PlaceSearchResult[]>([]);
   const [placeSearchAttempted, setPlaceSearchAttempted] = useState(false);
   const [placeSearching, setPlaceSearching] = useState(false);
+  const [detectingPlace, setDetectingPlace] = useState(false);
   const [draft, setDraft] = useState<PlaceDraft>();
   const [creating, setCreating] = useState(false);
   const [sentiment, setSentiment] = useState<Sentiment | null>(null);
+  const [cleanlinessRating, setCleanlinessRating] = useState<number>();
+  const [odorRating, setOdorRating] = useState<number>();
+  const [privacyRating, setPrivacyRating] = useState<number>();
+  const [waitBucket, setWaitBucket] = useState<WaitBucket>();
+  const [observedAccess, setObservedAccess] = useState<AccessType>();
+  const [observedStatus, setObservedStatus] = useState<OperatingStatus>('unknown');
+  const [visibility, setVisibility] = useState<VisitVisibility>('public');
   const [selectedTags, setSelectedTags] = useState<RatingLabel[]>([]);
   const [note, setNote] = useState('');
+  const [privateNote, setPrivateNote] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -122,6 +166,41 @@ export default function ModalScreen() {
     }
   }
 
+  async function useCurrentPlace() {
+    setDetectingPlace(true);
+    setError('');
+    try {
+      let center = currentLocation;
+      if (!center) {
+        const permission = await Location.requestForegroundPermissionsAsync();
+        if (permission.status !== 'granted') {
+          throw new Error('Location is off. Search for the place or enter it manually instead.');
+        }
+        const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        center = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+        setCurrentLocation(center);
+        setSearchCenter(center);
+      }
+      const place = await findCurrentPlace(center);
+      if (!place) throw new Error('We could not identify the place. Search or enter it manually instead.');
+      const customerVenue = ['restaurant', 'cafe', 'fast_food', 'bar', 'pub'].includes(place.type);
+      setDraft({
+        name: place.name,
+        address: place.address,
+        latitude: center.latitude,
+        longitude: center.longitude,
+        access: customerVenue ? 'customers_only' : 'unknown',
+        source: 'place-search',
+        useCurrentLocation: true,
+        pinAdjusted: false,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to identify your current place.');
+    } finally {
+      setDetectingPlace(false);
+    }
+  }
+
   function startPlaceConfirmation(place: PlaceSearchResult) {
     const customerVenue = ['restaurant', 'cafe', 'fast_food', 'bar', 'pub'].includes(place.type);
     setDraft({
@@ -132,6 +211,7 @@ export default function ModalScreen() {
       access: customerVenue ? 'customers_only' : 'unknown',
       source: 'place-search',
       useCurrentLocation: false,
+      pinAdjusted: false,
     });
     setError('');
   }
@@ -145,6 +225,7 @@ export default function ModalScreen() {
       access: 'unknown',
       source: 'manual',
       useCurrentLocation: Boolean(currentLocation),
+      pinAdjusted: false,
     });
     setError('');
   }
@@ -208,16 +289,28 @@ export default function ModalScreen() {
       setError('Choose an overall rating before saving your visit.');
       return;
     }
+    if (!cleanlinessRating || !odorRating || !privacyRating) {
+      setError('Rate cleanliness, smell, and privacy before saving your visit.');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
       await logVisit({
         bathroomId: bathroom.id,
         sentiment,
-        publicNote: note || 'Logged a new visit.',
+        publicNote: note.trim(),
+        privateNote: privateNote.trim() || undefined,
         tags: selectedTags,
+        cleanlinessRating,
+        odorRating,
+        privacyRating,
+        waitBucket,
+        observedAccess,
+        observedStatus,
+        visibility,
       });
-      router.back();
+      router.replace({ pathname: '/bathroom/[id]', params: { id: bathroom.id, reviewed: '1' } });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to save visit.');
     } finally {
@@ -300,6 +393,8 @@ export default function ModalScreen() {
           <Text style={styles.locationTitle}>
             {draft.useCurrentLocation
               ? 'Pin: your current location'
+              : draft.pinAdjusted
+                ? 'Pin: manually adjusted'
               : draft.source === 'place-search'
                 ? 'Pin: place-search result'
                 : 'Pin: address result'}
@@ -328,6 +423,24 @@ export default function ModalScreen() {
             </Pressable>
           ) : null}
         </View>
+
+        {Number.isFinite(draft.latitude) && Number.isFinite(draft.longitude) ? (
+          <View style={styles.pinEditorBlock}>
+            <Text style={styles.fieldLabel}>Bathroom location</Text>
+            <Text style={styles.locationCopy}>Tap the map or drag the pin if the suggested location is wrong.</Text>
+            <LocationPinEditor
+              latitude={draft.latitude!}
+              longitude={draft.longitude!}
+              onChange={({ latitude, longitude }) =>
+                setDraft((value) =>
+                  value
+                    ? { ...value, latitude, longitude, useCurrentLocation: false, pinAdjusted: true }
+                    : value,
+                )
+              }
+            />
+          </View>
+        ) : null}
 
         <Text style={styles.dedupeCopy}>
           If this matches an existing Poopi bathroom, your rating will attach to that bathroom instead of making a
@@ -365,6 +478,21 @@ export default function ModalScreen() {
         <Text style={styles.pickerIntro}>
           Search any venue or address. If its bathroom is not in Poopi yet, you can add it and continue rating.
         </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ disabled: detectingPlace }}
+          disabled={detectingPlace}
+          onPress={useCurrentPlace}
+          style={styles.currentPlaceButton}>
+          {detectingPlace ? (
+            <ActivityIndicator color={palette.jade} />
+          ) : (
+            <>
+              <Text style={styles.currentPlaceTitle}>◎ Use my current place</Text>
+              <Text style={styles.currentPlaceCopy}>We’ll suggest the nearest venue for you to confirm.</Text>
+            </>
+          )}
+        </Pressable>
         <View style={styles.searchBox}>
           <Text style={styles.searchIcon}>⌕</Text>
           <TextInput
@@ -524,18 +652,87 @@ export default function ModalScreen() {
         {!sentiment ? <Text style={styles.ratingHint}>Pick one to unlock bathroom labels.</Text> : null}
       </Section>
 
+      <Section title="Core ratings">
+        <Text style={styles.sectionHelp}>Three quick ratings make the community summary more trustworthy.</Text>
+        <DimensionScale
+          label="Cleanliness"
+          lowLabel="Unusable"
+          highLabel="Spotless"
+          value={cleanlinessRating}
+          onChange={setCleanlinessRating}
+        />
+        <DimensionScale
+          label="Smell"
+          lowLabel="Severe"
+          highLabel="Fresh"
+          value={odorRating}
+          onChange={setOdorRating}
+        />
+        <DimensionScale
+          label="Privacy"
+          lowLabel="Poor"
+          highLabel="Excellent"
+          value={privacyRating}
+          onChange={setPrivacyRating}
+        />
+      </Section>
+
+      <Section title="What was it like right now?">
+        <Text style={styles.fieldLabel}>Wait time</Text>
+        <OptionPills
+          options={WAIT_OPTIONS.map((id) => ({ id, label: WAIT_LABELS[id] }))}
+          value={waitBucket}
+          onChange={setWaitBucket}
+        />
+        <Text style={styles.fieldLabel}>Operating status</Text>
+        <OptionPills
+          options={STATUS_OPTIONS.map((id) => ({ id, label: STATUS_LABELS[id] }))}
+          value={observedStatus}
+          onChange={setObservedStatus}
+        />
+        <Text style={styles.fieldLabel}>Access you observed</Text>
+        <OptionPills options={OBSERVED_ACCESS_OPTIONS} value={observedAccess} onChange={setObservedAccess} />
+      </Section>
+
       <Section title="Labels">
         <RatingLabelPicker sentiment={sentiment} selected={selectedTags} onChange={setSelectedTags} />
       </Section>
 
-      <Section title="Note">
+      <Section title="Share a note">
         <TextInput
           value={note}
           onChangeText={setNote}
-          placeholder="Empty-room and signage photos only. Add what changed."
+          placeholder={visibility === 'public' ? 'Optional public note about this visit' : 'Optional note for this audience'}
           placeholderTextColor={palette.muted}
           multiline
           style={styles.noteInput}
+        />
+      </Section>
+
+      <Section title="Who can see this review?">
+        <View style={styles.visibilityRow}>
+          {VISIBILITY_OPTIONS.map((option) => {
+            const active = visibility === option.id;
+            return (
+              <Pressable
+                key={option.id}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: active }}
+                onPress={() => setVisibility(option.id)}
+                style={[styles.visibilityOption, active && styles.activeVisibilityOption]}>
+                <Text style={[styles.visibilityTitle, active && styles.activeVisibilityText]}>{option.label}</Text>
+                <Text style={styles.visibilityDescription}>{option.description}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        <TextInput
+          value={privateNote}
+          onChangeText={setPrivateNote}
+          placeholder="Private note—only you can read this"
+          placeholderTextColor={palette.muted}
+          multiline
+          style={[styles.noteInput, styles.privateNoteInput]}
         />
       </Section>
 
@@ -551,11 +748,11 @@ export default function ModalScreen() {
 
       <Pressable
         accessibilityRole="button"
-        accessibilityState={{ disabled: saving || !sentiment }}
-        disabled={saving || !sentiment}
+        accessibilityState={{ disabled: saving || !sentiment || !cleanlinessRating || !odorRating || !privacyRating }}
+        disabled={saving || !sentiment || !cleanlinessRating || !odorRating || !privacyRating}
         style={({ pressed }) => [
           styles.submitButton,
-          !sentiment && styles.disabledSubmitButton,
+          (!sentiment || !cleanlinessRating || !odorRating || !privacyRating) && styles.disabledSubmitButton,
           pressed && sentiment && styles.pressed,
         ]}
         onPress={submit}>
@@ -564,6 +761,77 @@ export default function ModalScreen() {
 
       <StatusBar style={Platform.OS === 'ios' ? 'light' : 'auto'} />
     </Screen>
+  );
+}
+
+function DimensionScale({
+  label,
+  lowLabel,
+  highLabel,
+  value,
+  onChange,
+}: {
+  label: string;
+  lowLabel: string;
+  highLabel: string;
+  value?: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <View style={styles.dimensionBlock}>
+      <View style={styles.dimensionHeader}>
+        <Text style={styles.dimensionLabel}>{label}</Text>
+        <Text style={styles.dimensionValue}>{value ? `${value}/5` : 'Choose'}</Text>
+      </View>
+      <View style={styles.numberScale}>
+        {[1, 2, 3, 4, 5].map((number) => {
+          const active = value === number;
+          return (
+            <Pressable
+              key={number}
+              accessibilityRole="radio"
+              accessibilityLabel={`${label} ${number} out of 5`}
+              accessibilityState={{ checked: active }}
+              onPress={() => onChange(number)}
+              style={[styles.numberOption, active && styles.activeNumberOption]}>
+              <Text style={[styles.numberText, active && styles.activeNumberText]}>{number}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      <View style={styles.scaleAnchors}>
+        <Text style={styles.scaleAnchor}>{lowLabel}</Text>
+        <Text style={styles.scaleAnchor}>{highLabel}</Text>
+      </View>
+    </View>
+  );
+}
+
+function OptionPills<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: Array<{ id: T; label: string }>;
+  value?: T;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <View style={styles.optionPills}>
+      {options.map((option) => {
+        const active = value === option.id;
+        return (
+          <Pressable
+            key={option.id}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: active }}
+            onPress={() => onChange(option.id)}
+            style={[styles.optionPill, active && styles.activeOptionPill]}>
+            <Text style={[styles.optionPillText, active && styles.activeOptionPillText]}>{option.label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }
 
@@ -584,6 +852,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     paddingHorizontal: 14,
+  },
+  currentPlaceButton: {
+    minHeight: 66,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#b6dfd4',
+    backgroundColor: palette.mint,
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    gap: 3,
+  },
+  currentPlaceTitle: {
+    color: palette.jade,
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  currentPlaceCopy: {
+    color: palette.ink,
+    fontSize: 12,
+    fontWeight: '700',
   },
   searchIcon: {
     color: palette.muted,
@@ -649,6 +937,9 @@ const styles = StyleSheet.create({
     backgroundColor: palette.mint,
     padding: 14,
     gap: 5,
+  },
+  pinEditorBlock: {
+    gap: 8,
   },
   locationTitle: {
     color: palette.jade,
@@ -878,6 +1169,128 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginTop: 8,
   },
+  sectionHelp: {
+    color: palette.muted,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+  dimensionBlock: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.surface,
+    padding: 12,
+    gap: 8,
+  },
+  dimensionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dimensionLabel: {
+    color: palette.ink,
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  dimensionValue: {
+    color: palette.jade,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  numberScale: {
+    flexDirection: 'row',
+    gap: 7,
+  },
+  numberOption: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.paper,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activeNumberOption: {
+    backgroundColor: palette.jade,
+    borderColor: palette.jade,
+  },
+  numberText: {
+    color: palette.ink,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  activeNumberText: {
+    color: '#fffaf6',
+  },
+  scaleAnchors: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  scaleAnchor: {
+    color: palette.muted,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  optionPills: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 7,
+  },
+  optionPill: {
+    minHeight: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.surface,
+    justifyContent: 'center',
+    paddingHorizontal: 13,
+  },
+  activeOptionPill: {
+    backgroundColor: palette.mint,
+    borderColor: '#b6dfd4',
+  },
+  optionPillText: {
+    color: palette.ink,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  activeOptionPillText: {
+    color: palette.jade,
+  },
+  visibilityRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  visibilityOption: {
+    flex: 1,
+    minHeight: 68,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.surface,
+    justifyContent: 'center',
+    padding: 10,
+    gap: 3,
+  },
+  activeVisibilityOption: {
+    borderColor: '#b6dfd4',
+    backgroundColor: palette.mint,
+  },
+  visibilityTitle: {
+    color: palette.ink,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  activeVisibilityText: {
+    color: palette.jade,
+  },
+  visibilityDescription: {
+    color: palette.muted,
+    fontSize: 10,
+    fontWeight: '700',
+  },
   noteInput: {
     minHeight: 120,
     borderRadius: 8,
@@ -888,6 +1301,10 @@ const styles = StyleSheet.create({
     padding: 14,
     fontSize: 15,
     textAlignVertical: 'top',
+  },
+  privateNoteInput: {
+    minHeight: 82,
+    backgroundColor: palette.goldSoft,
   },
   safetyBox: {
     borderRadius: 8,
