@@ -27,9 +27,9 @@
 - Visit logging with sentiment, quick tags, and a public note.
 - Recency-weighted bathroom summaries with dimension scores, median recent wait, review count, freshness, confidence, and expiring operating status.
 - Personal Elo-style rankings plus weighted community Bradley-Terry aggregation from pairwise votes.
-- Refuge Restrooms import/fallback, OSM and Refuge normalizers, deduplication helpers, and a fixture-backed visualizer.
+- Canonical UUID persistence for Refuge, OpenStreetMap, and user-created candidates, with shared normalization, cross-source deduplication, and source provenance.
 - Responsive static web export and Sites packaging for phone-browser testing.
-- `npm run typecheck` passes and all 34 current automated tests pass.
+- `npm run typecheck` passes and all 42 current automated tests pass.
 
 ### Incomplete or misleading today
 
@@ -39,7 +39,6 @@
 - Community comparison aggregation still needs a server-side cache for scale.
 - Public reviews have a privacy-safe read API, but bathroom details do not render the review list yet.
 - Free-form opening hours still need reliable parsing; until then, the app presents operating status as unknown unless a recent observation confirms it.
-- A direct Refuge fallback result may have a non-UUID ID and therefore cannot be reviewed or reported.
 - There is no destination search, distance/ETA, directions action, “search this area,” map clustering, or map/list bottom sheet.
 - Photo tables and moderation copy exist, but there is no storage/upload workflow.
 - Android still receives a list fallback instead of a functional map.
@@ -103,9 +102,9 @@ This is the complete launch set of 46 labels. The picker separates good and bad 
 - [x] **P0 · DATA-01 — Split facts from rated endorsements** — Owner: `@codex` · Depends on: none · Done when: TypeScript types and a forward-only Supabase migration implement the target contracts, restrict `RatingTag` to the approved good/bad catalog, require every tag row to reference a rating, and migrate compatible existing visit tags without losing data. PR: [#3](https://github.com/ColinHu07/poopi/pull/3)
 - [x] **P0 · DATA-02 — Build trustworthy bathroom summaries** — Owner: `@codex` · Depends on: DATA-01 · Done when: nearby/detail queries return real recency-weighted scores, wait, counts, freshness, confidence, and status instead of hard-coded values. PR: [#4](https://github.com/ColinHu07/poopi/pull/4)
 - [x] **P0 · DATA-03 — Separate public reads from identity-bound writes** — Owner: `@codex` · Depends on: DATA-01 · Done when: guests can read public data and submit rate-limited comparisons through persistent anonymous identities; account-only and private writes require permanent users; private notes and non-public visits fail public RLS tests. PR: [#5](https://github.com/ColinHu07/poopi/pull/5)
-- [ ] **P0 · DATA-04 — Resolve and persist every bathroom before rating** — Owner: `@unassigned` · Depends on: DATA-01 · Done when: Refuge/place-search results and user-created candidates are normalized, upserted, and deduplicated to Poopi UUIDs before entering the client; an existing bathroom at the same verified venue/location receives the new rating and photo instead of a duplicate; and every displayed result can be reviewed, saved, or reported. PR: —
-- [ ] **P0 · DATA-05 — Add OSM ingestion** — Owner: `@unassigned` · Depends on: DATA-04 · Done when: the existing OSM normalizer feeds the same import pipeline, source IDs are preserved, and OSM/Refuge/user duplicates resolve to one bathroom. PR: —
-- [ ] **P0 · DATA-06 — Remove false data certainty** — Owner: `@unassigned` · Depends on: DATA-01, DATA-02 · Done when: unknown hours never produce `isOpenNow = true`, missing confirmations stay missing, free filtering uses cost/access facts correctly, and the nearby RPC enforces a real radius. PR: —
+- [x] **P0 · DATA-04 — Resolve and persist every bathroom before rating** — Owner: `@codex` · Depends on: DATA-01 · Done when: Refuge/place-search results and user-created candidates are normalized, upserted, and deduplicated to Poopi UUIDs before entering the client; an existing bathroom at the same verified venue/location receives the new rating and photo instead of a duplicate; and every displayed result can be reviewed, saved, or reported. PR: [#7](https://github.com/ColinHu07/poopi/pull/7)
+- [x] **P0 · DATA-05 — Add OSM ingestion** — Owner: `@codex` · Depends on: DATA-04 · Done when: the existing OSM normalizer feeds the same import pipeline, source IDs are preserved, and OSM/Refuge/user duplicates resolve to one bathroom. PR: [#7](https://github.com/ColinHu07/poopi/pull/7)
+- [x] **P0 · DATA-06 — Remove false data certainty** — Owner: `@codex` · Depends on: DATA-01, DATA-02 · Done when: unknown hours never produce `isOpenNow = true`, missing confirmations stay missing, free filtering uses cost/access facts correctly, and the nearby RPC enforces a real radius. PR: [#7](https://github.com/ColinHu07/poopi/pull/7)
 
 ### Map and discovery
 
