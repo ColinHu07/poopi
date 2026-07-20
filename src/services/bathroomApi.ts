@@ -23,8 +23,10 @@ import { normalizeBathroomFeatures } from '@/src/data/bathroomFeatures';
 import { isDimensionRating, isOperatingStatus, isWaitBucket } from '@/src/data/visitObservations';
 import { freshnessState } from '@/src/lib/bathroomSummary';
 import { matchesBathroomFilters } from '@/src/lib/bathroomFilters';
+import { normalizeName } from '@/src/lib/dedupe';
 import {
   applyEloComparison,
+  distanceKm,
   rankCommunityComparisons,
   recommendationScore,
   scoreMapFromRatings,
@@ -376,6 +378,9 @@ export async function createBathroomCandidate(
   });
 
   if (error) {
+    if (error.code === 'PGRST202' || error.message.includes('upsert_canonical_bathroom')) {
+      return createBathroomCandidateWithoutCanonicalRpc(input);
+    }
     throw error;
   }
   const result = Array.isArray(data) ? data[0] : data;
@@ -387,6 +392,56 @@ export async function createBathroomCandidate(
     throw new Error('The resolved bathroom could not be loaded.');
   }
   return bathroom;
+}
+
+async function createBathroomCandidateWithoutCanonicalRpc(
+  input: Pick<Bathroom, 'name' | 'address' | 'latitude' | 'longitude' | 'access'>,
+): Promise<Bathroom> {
+  const client = requireSupabase();
+  const nearby = await getNearbyFromSupabase({
+    latitude: input.latitude,
+    longitude: input.longitude,
+    radiusMeters: 100,
+  }).catch(() => []);
+  const normalizedName = normalizeName(input.name);
+  const normalizedAddress = normalizeName(input.address);
+  const existing = nearby.find((bathroom) => {
+    const metersAway = distanceKm(input.latitude, input.longitude, bathroom.latitude, bathroom.longitude) * 1000;
+    if (metersAway <= 18) return true;
+    return (
+      metersAway <= 80 &&
+      ((normalizedName && normalizeName(bathroom.name) === normalizedName) ||
+        (normalizedAddress && normalizeName(bathroom.address) === normalizedAddress))
+    );
+  });
+  if (existing) return cacheBathroom(existing);
+
+  const { data, error } = await client
+    .from('bathrooms')
+    .insert({
+      name: input.name,
+      kind: 'User submitted restroom',
+      address: input.address,
+      location: `POINT(${input.longitude} ${input.latitude})`,
+      access: input.access,
+      price_note: 'Unverified',
+      opening_hours: 'Unknown',
+      confidence: 0.35,
+      directions_note: '',
+    })
+    .select(
+      'id, name, kind, address, neighborhood, city, access, price_note, opening_hours, confidence, directions_note, last_confirmed_at',
+    )
+    .single();
+
+  if (error || !data) throw error ?? new Error('The bathroom could not be created.');
+  return cacheBathroom(
+    mapSupabaseBathroom({
+      ...(data as unknown as SupabaseBathroomRow),
+      latitude: input.latitude,
+      longitude: input.longitude,
+    }),
+  );
 }
 
 export async function logVisit(input: {

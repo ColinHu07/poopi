@@ -24,12 +24,13 @@
 - Persistent anonymous comparison identities, permanent-account contribution gates, and a privacy-safe public review API that excludes user IDs and private notes.
 - Five tabs: Map, Rank, Feed, Lists, and Profile, with account-only actions gated at the point of use.
 - Bathroom details with access information, features, source provenance, confidence, and photos/placeholders.
-- Visit logging with sentiment, quick tags, and a public note.
+- Visit logging with sentiment, quick tags, and a public note, including an entry point that searches existing Poopi bathrooms.
+- Explicit OpenStreetMap venue/address search, editable place confirmation, and manual missing-bathroom entry using an address or the user's current location.
 - Recency-weighted bathroom summaries with dimension scores, median recent wait, review count, freshness, confidence, and expiring operating status.
 - Personal Elo-style rankings plus weighted community Bradley-Terry aggregation from pairwise votes.
 - Canonical UUID persistence for Refuge, OpenStreetMap, and user-created candidates, with shared normalization, cross-source deduplication, and source provenance.
 - Responsive static web export and Sites packaging for phone-browser testing.
-- `npm run typecheck` passes and all 42 current automated tests pass.
+- `npm run typecheck` passes and all 45 current automated tests pass.
 
 ### Incomplete or misleading today
 
@@ -109,7 +110,7 @@ This is the complete launch set of 46 labels. The picker separates good and bad 
 ### Map and discovery
 
 - [ ] **P0 · MAP-01 — Enable guest discovery** — Owner: `@unassigned` · Depends on: DATA-03 · Done when: a user can continue as a guest, open Map, grant/deny location, search, inspect details, and submit comparisons without creating a profile; account-only actions present sign-in at the point of action. PR: —
-- [ ] **P0 · MAP-02 — Add destination, venue, and viewport search** — Owner: `@unassigned` · Depends on: DATA-04 · Done when: users can search an address/place, use current location to receive a Google Places venue suggestion, confirm or edit the venue/address/map pin, recenter, pan, and explicitly run “Search this area” without the camera unexpectedly snapping back. Location-denied and failed-match states offer manual place/address entry. PR: —
+- [ ] **P0 · MAP-02 — Add destination, venue, and viewport search** — Owner: `@codex` · Depends on: DATA-04 · Done when: users can search an address/place against a real-world place index, use current location to prioritize nearby suggestions, confirm or edit the venue/address/location, recenter, pan, and explicitly run “Search this area” without the camera unexpectedly snapping back. Location-denied and failed-match states offer manual place/address entry. Partial: the rating flow now supports explicit OpenStreetMap venue search, editable confirmation, and manual entry; map viewport search remains. PR: —
 - [ ] **P0 · MAP-03 — Build an intuitive map/list result surface** — Owner: `@unassigned` · Depends on: DATA-02, MAP-02 · Done when: clustered markers and a synchronized bottom-sheet list show score/status, distance, access, freshness, and selection consistently. PR: —
 - [ ] **P0 · MAP-04 — Add routing and ETA** — Owner: `@unassigned` · Depends on: MAP-03 · Done when: each result/detail displays distance and walking ETA and can open Apple Maps directions to the correct coordinates. PR: —
 - [ ] **P0 · MAP-05 — Add fast need-based filters** — Owner: `@unassigned` · Depends on: DATA-02, MAP-02 · Done when: open status, free/public, maximum wait, minimum cleanliness, wheelchair, all-gender, single-stall, and changing-table filters produce correct map/list results and clear active-filter states. PR: —
@@ -119,7 +120,7 @@ This is the complete launch set of 46 labels. The picker separates good and bad 
 - [ ] **P0 · REVIEW-01 — Redesign bathroom details around trust** — Owner: `@unassigned` · Depends on: DATA-02, MAP-04 · Done when: details prioritize current status, distance/ETA, directions, access/cost, recent condition summaries, confidence, last confirmation, public reviews, and source attribution. PR: —
 - [ ] **P0 · REVIEW-02 — Build the sub-30-second review flow** — Owner: `@unassigned` · Depends on: DATA-01 · Done when: a signed-in user must choose an overall rating before the optional label picker appears, can browse the complete 46-label good/bad catalog, and can submit the rating, structured observations, visibility, labels, and optional note with accessible controls and clear validation. PR: —
 - [ ] **P0 · REVIEW-03 — Publish and aggregate safe reviews** — Owner: `@unassigned` · Depends on: DATA-02, DATA-03, REVIEW-02 · Done when: public reviews appear on details and update summaries immediately, commonly selected good/bad labels are aggregated only from valid ratings, friends/private reviews respect visibility, and private notes never leave owner-scoped queries. PR: —
-- [ ] **P0 · REVIEW-04 — Connect reporting and missing-bathroom flows** — Owner: `@unassigned` · Depends on: DATA-03, DATA-04, MAP-02 · Done when: “Rate a bathroom” can start even when no map point exists; with permission, the app suggests the user’s current venue, checks nearby canonical bathrooms, and asks for confirmation before attaching the rating; without a reliable match, the user can search or manually enter and edit the venue name, address, and map pin before creation. Signed-in users can also report closed, out-of-order, unsafe, inaccessible, inaccurate, duplicate, or privacy issues and receive a clear success/error state. PR: —
+- [ ] **P0 · REVIEW-04 — Connect reporting and missing-bathroom flows** — Owner: `@codex` · Depends on: DATA-03, DATA-04, MAP-02 · Done when: “Rate a bathroom” can start even when no map point exists; with permission, the app suggests the user’s current venue, checks nearby canonical bathrooms, and asks for confirmation before attaching the rating; without a reliable match, the user can search or manually enter and edit the venue name, address, and map pin before creation. Signed-in users can also report closed, out-of-order, unsafe, inaccessible, inaccurate, duplicate, or privacy issues and receive a clear success/error state. Partial: missing venues can now be searched, confirmed/edited, created or deduplicated, and continued into rating; current-venue suggestions, map-pin editing, and reporting remain. PR: —
 - [ ] **P0 · REVIEW-05 — Wire a minimal private save action** — Owner: `@unassigned` · Depends on: DATA-03, DATA-04 · Done when: a signed-in user can save/unsave any bathroom to one private system-created `Saved` collection and the detail button always reflects the persisted state. PR: —
 
 ### Reliability, accessibility, and validation
