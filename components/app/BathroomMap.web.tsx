@@ -3,6 +3,7 @@ import 'leaflet/dist/leaflet.css';
 import { useEffect, useRef, useState } from 'react';
 
 import type { Bathroom } from '@/src/data/types';
+import { clusterBathrooms, type MapViewport } from '@/src/lib/mapDiscovery';
 
 interface BathroomMapProps {
   bathrooms: Bathroom[];
@@ -10,20 +11,33 @@ interface BathroomMapProps {
   locationGranted: boolean;
   selectedId?: string;
   onSelect: (id: string) => void;
+  onViewportChange?: (viewport: MapViewport) => void;
+  recenterNonce?: number;
 }
 
 type LeafletModule = typeof import('leaflet');
 
-export function BathroomMap({ bathrooms, center, locationGranted, selectedId, onSelect }: BathroomMapProps) {
+export function BathroomMap({
+  bathrooms,
+  center,
+  locationGranted,
+  selectedId,
+  onSelect,
+  onViewportChange,
+  recenterNonce = 0,
+}: BathroomMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const leafletRef = useRef<LeafletModule | null>(null);
   const mapRef = useRef<import('leaflet').Map | null>(null);
   const markersRef = useRef<import('leaflet').LayerGroup | null>(null);
   const locationRef = useRef<import('leaflet').CircleMarker | null>(null);
   const onSelectRef = useRef(onSelect);
+  const onViewportChangeRef = useRef(onViewportChange);
   const [mapReady, setMapReady] = useState(false);
+  const [zoom, setZoom] = useState(14);
 
   onSelectRef.current = onSelect;
+  onViewportChangeRef.current = onViewportChange;
 
   useEffect(() => {
     let cancelled = false;
@@ -47,6 +61,19 @@ export function BathroomMap({ bathrooms, center, locationGranted, selectedId, on
 
       mapRef.current = map;
       markersRef.current = L.layerGroup().addTo(map);
+      map.on('moveend', () => {
+        const mapCenter = map.getCenter();
+        const bounds = map.getBounds();
+        const nextZoom = map.getZoom();
+        setZoom(nextZoom);
+        onViewportChangeRef.current?.({
+          latitude: mapCenter.lat,
+          longitude: mapCenter.lng,
+          latitudeDelta: Math.abs(bounds.getNorth() - bounds.getSouth()),
+          longitudeDelta: Math.abs(bounds.getEast() - bounds.getWest()),
+          zoom: nextZoom,
+        });
+      });
       setMapReady(true);
       window.setTimeout(() => map.invalidateSize(), 0);
     }
@@ -64,7 +91,7 @@ export function BathroomMap({ bathrooms, center, locationGranted, selectedId, on
 
   useEffect(() => {
     mapRef.current?.setView([center.latitude, center.longitude], mapRef.current.getZoom(), { animate: true });
-  }, [center.latitude, center.longitude]);
+  }, [center.latitude, center.longitude, recenterNonce]);
 
   useEffect(() => {
     const L = leafletRef.current;
@@ -75,25 +102,38 @@ export function BathroomMap({ bathrooms, center, locationGranted, selectedId, on
     }
 
     markerLayer.clearLayers();
-    bathrooms.forEach((bathroom) => {
-      const selected = bathroom.id === selectedId;
-      const markerSize = selected ? 34 : 28;
+    clusterBathrooms(bathrooms, zoom).forEach((cluster) => {
+      const bathroom = cluster.bathrooms[0];
+      const isCluster = cluster.bathrooms.length > 1;
+      const selected = cluster.bathrooms.some(({ id }) => id === selectedId);
+      const markerSize = isCluster ? 42 : selected ? 34 : 28;
       const icon = L.divIcon({
         className: '',
-        html: `<div style="display:flex;align-items:center;justify-content:center;width:${markerSize}px;height:${markerSize}px;border:3px solid #fff;border-radius:999px;background:${selected ? '#d95b43' : '#202124'};box-shadow:0 5px 16px rgba(32,33,36,.28);box-sizing:border-box"><div style="width:7px;height:7px;border-radius:999px;background:#fffaf6"></div></div>`,
+        html: `<div style="display:flex;align-items:center;justify-content:center;width:${markerSize}px;height:${markerSize}px;border:3px solid #fff;border-radius:999px;background:${selected ? '#d95b43' : isCluster ? '#258477' : '#202124'};color:#fffaf6;font:900 ${isCluster ? 14 : 12}px system-ui;box-shadow:0 5px 16px rgba(32,33,36,.28);box-sizing:border-box">${isCluster ? cluster.bathrooms.length : '•'}</div>`,
         iconAnchor: [markerSize / 2, markerSize / 2],
         iconSize: [markerSize, markerSize],
       });
-      const marker = L.marker([bathroom.latitude, bathroom.longitude], {
+      const marker = L.marker([cluster.latitude, cluster.longitude], {
         icon,
         keyboard: true,
-        title: bathroom.name,
+        title: isCluster ? `${cluster.bathrooms.length} bathrooms` : bathroom.name,
       });
       marker.on('add', () => {
-        marker.getElement()?.setAttribute('aria-label', bathroom.name);
+        marker
+          .getElement()
+          ?.setAttribute('aria-label', isCluster ? `${cluster.bathrooms.length} bathrooms in this area` : bathroom.name);
       });
-      marker.on('click', () => onSelectRef.current(bathroom.id));
-      marker.bindTooltip(bathroom.name, { direction: 'top', offset: [0, -20] });
+      marker.on('click', () => {
+        if (isCluster) {
+          map.setView([cluster.latitude, cluster.longitude], Math.min(19, map.getZoom() + 2), { animate: true });
+        } else {
+          onSelectRef.current(bathroom.id);
+        }
+      });
+      marker.bindTooltip(isCluster ? `${cluster.bathrooms.length} bathrooms` : bathroom.name, {
+        direction: 'top',
+        offset: [0, -20],
+      });
       marker.addTo(markerLayer);
     });
 
@@ -110,7 +150,7 @@ export function BathroomMap({ bathrooms, center, locationGranted, selectedId, on
         fillOpacity: 1,
       }).addTo(map);
     }
-  }, [bathrooms, center.latitude, center.longitude, locationGranted, mapReady, selectedId]);
+  }, [bathrooms, center.latitude, center.longitude, locationGranted, mapReady, selectedId, zoom]);
 
   return (
     <div

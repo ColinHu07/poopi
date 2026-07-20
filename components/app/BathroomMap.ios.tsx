@@ -1,7 +1,9 @@
 import { AppleMaps } from 'expo-maps';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { Bathroom } from '@/src/data/types';
+import { clusterBathrooms, type MapViewport } from '@/src/lib/mapDiscovery';
 import { palette } from './tokens';
 
 interface BathroomMapProps {
@@ -10,26 +12,48 @@ interface BathroomMapProps {
   locationGranted: boolean;
   selectedId?: string;
   onSelect: (id: string) => void;
+  onViewportChange?: (viewport: MapViewport) => void;
+  recenterNonce?: number;
 }
 
-export function BathroomMap({ bathrooms, center, locationGranted, selectedId, onSelect }: BathroomMapProps) {
-  const annotations = bathrooms.map((bathroom) => {
-    const selected = bathroom.id === selectedId;
+export function BathroomMap({
+  bathrooms,
+  center,
+  locationGranted,
+  selectedId,
+  onSelect,
+  onViewportChange,
+  recenterNonce = 0,
+}: BathroomMapProps) {
+  const mapRef = useRef<AppleMaps.MapView | null>(null);
+  const [zoom, setZoom] = useState(14);
+  const clusters = useMemo(() => clusterBathrooms(bathrooms, zoom), [bathrooms, zoom]);
+  const annotations = clusters.map((cluster) => {
+    const bathroom = cluster.bathrooms[0];
+    const isCluster = cluster.bathrooms.length > 1;
+    const selected = cluster.bathrooms.some(({ id }) => id === selectedId);
     return {
-      id: bathroom.id,
-      coordinates: { latitude: bathroom.latitude, longitude: bathroom.longitude },
-      title: bathroom.name,
-      text:
-        (bathroom.scores.communityReviewCount ?? 0) > 0 ? bathroom.scores.community.toFixed(1) : '•',
-      textColor: selected ? '#fffaf6' : palette.surface,
-      backgroundColor: selected ? palette.coral : palette.ink,
+      id: cluster.id,
+      coordinates: { latitude: cluster.latitude, longitude: cluster.longitude },
+      title: isCluster ? `${cluster.bathrooms.length} bathrooms` : bathroom.name,
+      text: isCluster
+        ? String(cluster.bathrooms.length)
+        : (bathroom.scores.communityReviewCount ?? 0) > 0
+          ? bathroom.scores.community.toFixed(1)
+          : '•',
+      textColor: palette.surface,
+      backgroundColor: selected ? palette.coral : isCluster ? palette.jade : palette.ink,
     };
   });
+
+  useEffect(() => {
+    mapRef.current?.setCameraPosition({ coordinates: center, zoom });
+  }, [center.latitude, center.longitude, recenterNonce]);
 
   return (
     <View style={styles.mapWrap}>
       <AppleMaps.View
-        key={`${center.latitude.toFixed(4)}-${center.longitude.toFixed(4)}`}
+        ref={mapRef}
         style={styles.map}
         cameraPosition={{ coordinates: center, zoom: 14 }}
         annotations={annotations}
@@ -44,9 +68,29 @@ export function BathroomMap({ bathrooms, center, locationGranted, selectedId, on
           scaleBarEnabled: true,
         }}
         onAnnotationClick={(event) => {
-          if (event.id) {
+          if (!event.id) return;
+          const cluster = clusters.find(({ id }) => id === event.id);
+          if (cluster && cluster.bathrooms.length > 1) {
+            mapRef.current?.setCameraPosition({
+              coordinates: { latitude: cluster.latitude, longitude: cluster.longitude },
+              zoom: Math.min(19, zoom + 2),
+            });
+          } else {
             onSelect(event.id);
           }
+        }}
+        onCameraMove={(event) => {
+          const latitude = event.coordinates.latitude;
+          const longitude = event.coordinates.longitude;
+          if (latitude == null || longitude == null) return;
+          setZoom(event.zoom);
+          onViewportChange?.({
+            latitude,
+            longitude,
+            latitudeDelta: event.latitudeDelta,
+            longitudeDelta: event.longitudeDelta,
+            zoom: event.zoom,
+          });
         }}
       />
       <Text style={styles.attribution}>Apple Maps · Refuge + Poopi data</Text>
