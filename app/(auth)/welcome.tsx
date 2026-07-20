@@ -1,15 +1,13 @@
 import { Link, Redirect, router } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { GoogleAuthButton } from '@/components/app/GoogleAuthButton';
 import { palette } from '@/components/app/tokens';
 import { useAuth } from '@/src/providers/AuthProvider';
 
 export default function WelcomeScreen() {
-  const { configured, continueAsGuest, isAnonymous, loading, profileComplete, session, signInWithGoogle } = useAuth();
-  const [guestLoading, setGuestLoading] = useState(false);
-  const [guestError, setGuestError] = useState('');
+  const { configured, isAnonymous, loading, profileComplete, session, signInWithGoogle } = useAuth();
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -47,8 +45,9 @@ export default function WelcomeScreen() {
       />
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      {configured ? (
-        <View style={styles.actions}>
+      <View style={styles.actions}>
+        {configured ? (
+          <>
           <Link href={'/sign-up' as any} asChild>
             <Pressable style={styles.primaryButton}>
               <Text style={styles.primaryText}>Create account</Text>
@@ -59,33 +58,17 @@ export default function WelcomeScreen() {
               <Text style={styles.secondaryText}>Log in</Text>
             </Pressable>
           </Link>
-          <Pressable
-            disabled={guestLoading}
-            style={styles.guestButton}
-            onPress={async () => {
-              setGuestLoading(true);
-              setGuestError('');
-              try {
-                await continueAsGuest();
-                router.replace('/(tabs)');
-              } catch (error) {
-                setGuestError(error instanceof Error ? error.message : 'Unable to continue as guest.');
-              } finally {
-                setGuestLoading(false);
-              }
-            }}>
-            {guestLoading ? <ActivityIndicator color={palette.jade} /> : <Text style={styles.guestText}>Continue as guest</Text>}
-          </Pressable>
-          {guestError ? <Text style={styles.guestError}>{guestError}</Text> : null}
-        </View>
-      ) : (
-        <View style={styles.setupCard}>
-          <Text style={styles.setupTitle}>Google sign-in is ready for Supabase</Text>
-          <Text style={styles.setupCopy}>
-            Finish connecting Supabase and enable its Google provider to turn on account creation.
-          </Text>
-        </View>
-      )}
+          </>
+        ) : (
+          <View style={styles.setupCard}>
+            <Text style={styles.setupTitle}>Account setup is unavailable</Text>
+            <Text style={styles.setupCopy}>Bathroom discovery still works without an account.</Text>
+          </View>
+        )}
+        <Pressable style={styles.guestButton} onPress={() => router.replace('/(tabs)')}>
+          <Text style={styles.guestText}>Browse as guest</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -168,12 +151,6 @@ const styles = StyleSheet.create({
     color: palette.jade,
     fontSize: 15,
     fontWeight: '900',
-  },
-  guestError: {
-    color: palette.coral,
-    fontSize: 13,
-    fontWeight: '700',
-    textAlign: 'center',
   },
   setupCard: {
     borderRadius: 8,

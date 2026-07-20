@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ScorePill } from '@/components/app/ScorePill';
-import { AuthRequired } from '@/components/app/AuthRequired';
 import { Screen } from '@/components/app/Screen';
 import { TagChip } from '@/components/app/TagChip';
 import { palette, shadow } from '@/components/app/tokens';
@@ -17,6 +16,7 @@ export default function RankScreen() {
   const [ranked, setRanked] = useState<RankedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     loadRanked();
@@ -33,9 +33,12 @@ export default function RankScreen() {
 
   async function choose(winnerId: string, loserId: string) {
     setSaving(true);
+    setError('');
     try {
       await recordComparison(winnerId, loserId);
       await loadRanked();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to save this comparison.');
     } finally {
       setSaving(false);
     }
@@ -44,17 +47,22 @@ export default function RankScreen() {
   const left = ranked[0]?.bathroom;
   const right = ranked[1]?.bathroom;
 
-  if (!session) {
-    return (
-      <AuthRequired
-        title="Rank your bathroom visits"
-        description="Log in to build your personal ranking, compare bathrooms, and keep your history synced across devices."
-      />
-    );
-  }
-
   return (
-    <Screen kicker="Personal score" title="Your rankings" right={<ScorePill label="top" value={ranked[0]?.score} />}>
+    <Screen
+      kicker={session ? 'Personal score' : 'Guest comparison'}
+      title={session ? 'Your rankings' : 'Compare bathrooms'}
+      right={<ScorePill label="top" value={ranked[0]?.score} />}>
+      {error ? (
+        <View style={styles.errorBox}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      ) : null}
+      {!session ? (
+        <View style={styles.guestBox}>
+          <Text style={styles.guestTitle}>No account needed</Text>
+          <Text style={styles.guestCopy}>Your first vote creates a private guest identity. Log in later if you want rankings synced across devices.</Text>
+        </View>
+      ) : null}
       {loading ? (
         <View style={styles.empty}>
           <ActivityIndicator color={palette.jade} />
@@ -117,6 +125,11 @@ function Choice({ bathroom, onPress }: { bathroom: Bathroom; onPress: () => void
 }
 
 const styles = StyleSheet.create({
+  guestBox: { borderRadius: 10, borderWidth: 1, borderColor: '#b6dfd4', backgroundColor: palette.mint, padding: 13, gap: 3 },
+  guestTitle: { color: palette.jade, fontSize: 14, fontWeight: '900' },
+  guestCopy: { color: palette.ink, fontSize: 12, lineHeight: 17, fontWeight: '700' },
+  errorBox: { borderRadius: 10, borderWidth: 1, borderColor: '#ffc4b5', backgroundColor: palette.coralSoft, padding: 13 },
+  errorText: { color: palette.coral, fontSize: 13, lineHeight: 18, fontWeight: '800' },
   compareCard: {
     borderRadius: 8,
     borderWidth: 1,

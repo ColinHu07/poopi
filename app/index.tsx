@@ -15,11 +15,7 @@ export default function EntryScreen() {
     );
   }
 
-  if (!configured || !session) {
-    return <Redirect href={'/welcome' as any} />;
-  }
-
-  if (!isAnonymous && !profileComplete) {
+  if (configured && session && !isAnonymous && !profileComplete) {
     return <Redirect href={'/complete-profile' as any} />;
   }
 

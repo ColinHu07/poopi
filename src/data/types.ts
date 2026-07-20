@@ -183,6 +183,9 @@ export interface Bathroom {
 export interface BathroomFilters {
   openNow?: boolean;
   free?: boolean;
+  publicAccess?: boolean;
+  maxWait?: WaitBucket;
+  minCleanliness?: 1 | 2 | 3 | 4 | 5;
   wheelchair?: boolean;
   babyChanging?: boolean;
   allGender?: boolean;

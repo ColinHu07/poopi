@@ -1,35 +1,59 @@
 import * as Location from 'expo-location';
 import { Link } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Linking, Platform, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
 import { BathroomCard } from '@/components/app/BathroomCard';
 import { BathroomMap } from '@/components/app/BathroomMap';
 import { Screen } from '@/components/app/Screen';
 import { TagChip } from '@/components/app/TagChip';
 import { palette, shadow } from '@/components/app/tokens';
-import type { Bathroom, BathroomFilters } from '@/src/data/types';
+import type { Bathroom, BathroomFilters, WaitBucket } from '@/src/data/types';
+import { buildWalkingDirectionsUrl, formatDistance, formatWalkingEta } from '@/src/lib/directions';
 import { viewportMoved, viewportRadiusMeters, type MapViewport } from '@/src/lib/mapDiscovery';
 import { useAuth } from '@/src/providers/AuthProvider';
 import { DEFAULT_MAP_CENTER, getNearbyBathrooms } from '@/src/services/bathroomApi';
 import { searchPlaces, type PlaceSearchResult } from '@/src/services/placeSearch';
 
-const FILTERS: Array<{ id: keyof BathroomFilters; label: string }> = [
+type ToggleFilterKey =
+  | 'openNow'
+  | 'free'
+  | 'publicAccess'
+  | 'wheelchair'
+  | 'babyChanging'
+  | 'allGender'
+  | 'singleStall';
+
+const QUICK_FILTERS: Array<{ id: ToggleFilterKey; label: string }> = [
   { id: 'openNow', label: 'Open now' },
   { id: 'free', label: 'Free' },
+  { id: 'publicAccess', label: 'Public access' },
   { id: 'wheelchair', label: 'Wheelchair' },
   { id: 'babyChanging', label: 'Baby change' },
   { id: 'allGender', label: 'All-gender' },
   { id: 'singleStall', label: 'Single-stall' },
-  { id: 'customersOnly', label: 'Customers' },
-  { id: 'paid', label: 'Paid' },
-  { id: 'highConfidence', label: 'High confidence' },
+];
+
+const WAIT_FILTERS: Array<{ value?: WaitBucket; label: string }> = [
+  { label: 'Any wait' },
+  { value: 'none', label: 'No wait' },
+  { value: 'under_five', label: '≤ 5 min' },
+  { value: 'five_to_ten', label: '≤ 10 min' },
+  { value: 'ten_to_twenty', label: '≤ 20 min' },
+];
+
+const CLEANLINESS_FILTERS: Array<{ value?: 1 | 2 | 3 | 4 | 5; label: string }> = [
+  { label: 'Any rating' },
+  { value: 3, label: '3+ clean' },
+  { value: 4, label: '4+ clean' },
+  { value: 5, label: '5 clean' },
 ];
 
 export default function MapScreen() {
   const { width } = useWindowDimensions();
   const { isAnonymous, session } = useAuth();
   const [filters, setFilters] = useState<BathroomFilters>({});
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [center, setCenter] = useState(DEFAULT_MAP_CENTER);
   const [userLocation, setUserLocation] = useState<typeof DEFAULT_MAP_CENTER>();
   const [radiusMeters, setRadiusMeters] = useState(5_000);
@@ -64,6 +88,7 @@ export default function MapScreen() {
   const wideLayout = width >= 900;
   const canContribute = Boolean(session && !isAnonymous);
   const canSearchArea = Boolean(pendingViewport && viewportMoved(center, pendingViewport));
+  const activeFilterCount = Object.values(filters).filter((value) => value !== undefined && value !== false).length;
 
   useEffect(() => {
     resolveLocation();
@@ -193,8 +218,16 @@ export default function MapScreen() {
     setSearchOpen(false);
   }
 
-  function toggleFilter(id: keyof BathroomFilters) {
+  function toggleFilter(id: ToggleFilterKey) {
     setFilters((current) => ({ ...current, [id]: !current[id] }));
+  }
+
+  function openDirections(bathroom: Bathroom) {
+    const url = buildWalkingDirectionsUrl(
+      { latitude: bathroom.latitude, longitude: bathroom.longitude, name: bathroom.name },
+      Platform.OS === 'ios' ? 'ios' : Platform.OS === 'android' ? 'android' : 'web',
+    );
+    Linking.openURL(url);
   }
 
   return (
@@ -291,8 +324,27 @@ export default function MapScreen() {
         ) : null}
       </View>
 
+      <View style={styles.filterHeader}>
+        <Text style={styles.filterHeading}>What do you need?</Text>
+        <View style={styles.filterHeaderActions}>
+          {activeFilterCount ? (
+            <Pressable accessibilityLabel="Clear all filters" onPress={() => setFilters({})}>
+              <Text style={styles.clearFilters}>Clear all</Text>
+            </Pressable>
+          ) : null}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ expanded: filtersOpen }}
+            onPress={() => setFiltersOpen((value) => !value)}
+            style={[styles.moreFiltersButton, filtersOpen && styles.activeFilter]}>
+            <Text style={[styles.filterText, filtersOpen && styles.activeFilterText]}>
+              Filters{activeFilterCount ? ` · ${activeFilterCount}` : ''} {filtersOpen ? '↑' : '↓'}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
       <View style={styles.filterRow}>
-        {FILTERS.map((filter) => {
+        {QUICK_FILTERS.map((filter) => {
           const active = Boolean(filters[filter.id]);
           return (
             <Pressable
@@ -306,6 +358,46 @@ export default function MapScreen() {
           );
         })}
       </View>
+
+      {filtersOpen ? (
+        <View style={styles.advancedFilters}>
+          <View style={styles.filterGroup}>
+            <Text style={styles.filterGroupTitle}>Maximum reported wait</Text>
+            <View style={styles.filterRow}>
+              {WAIT_FILTERS.map((option) => {
+                const active = filters.maxWait === option.value;
+                return (
+                  <Pressable
+                    accessibilityState={{ selected: active }}
+                    key={option.label}
+                    onPress={() => setFilters((current) => ({ ...current, maxWait: option.value }))}
+                    style={[styles.filterButton, active && styles.activeFilter]}>
+                    <Text style={[styles.filterText, active && styles.activeFilterText]}>{option.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+          <View style={styles.filterGroup}>
+            <Text style={styles.filterGroupTitle}>Minimum cleanliness</Text>
+            <View style={styles.filterRow}>
+              {CLEANLINESS_FILTERS.map((option) => {
+                const active = filters.minCleanliness === option.value;
+                return (
+                  <Pressable
+                    accessibilityState={{ selected: active }}
+                    key={option.label}
+                    onPress={() => setFilters((current) => ({ ...current, minCleanliness: option.value }))}
+                    style={[styles.filterButton, active && styles.activeFilter]}>
+                    <Text style={[styles.filterText, active && styles.activeFilterText]}>{option.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+          <Text style={styles.unknownFilterNote}>Bathrooms with unknown wait or cleanliness are excluded only when that filter is active.</Text>
+        </View>
+      ) : null}
 
       {!locationGranted && !locationLoading ? (
         <View style={styles.locationPanel}>
@@ -388,13 +480,26 @@ export default function MapScreen() {
 
           <View style={styles.list}>
             {bathrooms.map((bathroom) => (
-              <BathroomCard
-                key={bathroom.id}
-                bathroom={bathroom}
-                compact
-                selected={bathroom.id === selectedId}
-                onPress={() => setSelectedId(bathroom.id)}
-              />
+              <View key={bathroom.id} style={styles.resultItem}>
+                <BathroomCard
+                  bathroom={bathroom}
+                  compact
+                  selected={bathroom.id === selectedId}
+                  onPress={() => setSelectedId(bathroom.id)}
+                />
+                <View style={styles.resultRouteRow}>
+                  <Text style={styles.resultRouteText} numberOfLines={1}>
+                    {formatDistance(bathroom.distanceMeters)} · {formatWalkingEta(bathroom.distanceMeters)}
+                  </Text>
+                  <Pressable
+                    accessibilityLabel={`Walking directions to ${bathroom.name}`}
+                    accessibilityRole="link"
+                    onPress={() => openDirections(bathroom)}
+                    style={styles.resultDirectionsButton}>
+                    <Text style={styles.resultDirectionsText}>Directions ↗</Text>
+                  </Pressable>
+                </View>
+              </View>
             ))}
           </View>
 
@@ -436,11 +541,20 @@ const styles = StyleSheet.create({
   noPlaceText: { color: palette.muted, fontSize: 13, lineHeight: 18 },
   manualButton: { minHeight: 42, borderRadius: 9, backgroundColor: palette.coralSoft, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   manualButtonText: { color: palette.coral, fontSize: 13, fontWeight: '900' },
+  filterHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 },
+  filterHeading: { color: palette.ink, fontSize: 16, fontWeight: '900' },
+  filterHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  clearFilters: { color: palette.coral, fontSize: 13, fontWeight: '900' },
+  moreFiltersButton: { minHeight: 38, borderRadius: 999, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface, paddingHorizontal: 13, alignItems: 'center', justifyContent: 'center' },
   filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   filterButton: { minHeight: 38, borderRadius: 999, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface, paddingHorizontal: 13, alignItems: 'center', justifyContent: 'center' },
   activeFilter: { borderColor: '#8bcdbf', backgroundColor: palette.mint },
   filterText: { color: palette.ink, fontSize: 13, fontWeight: '800' },
   activeFilterText: { color: palette.jade },
+  advancedFilters: { borderRadius: 12, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface, padding: 14, gap: 15 },
+  filterGroup: { gap: 8 },
+  filterGroupTitle: { color: palette.ink, fontSize: 13, fontWeight: '900' },
+  unknownFilterNote: { color: palette.muted, fontSize: 11, lineHeight: 16, fontWeight: '700' },
   locationPanel: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 10, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface, padding: 12 },
   locationCopy: { flex: 1, gap: 3 },
   locationTitle: { color: palette.ink, fontSize: 15, fontWeight: '900' },
@@ -474,6 +588,11 @@ const styles = StyleSheet.create({
   rateButton: { minHeight: 44, borderRadius: 9, backgroundColor: palette.coral, paddingHorizontal: 15, alignItems: 'center', justifyContent: 'center' },
   rateButtonText: { color: '#fffaf6', fontSize: 13, fontWeight: '900' },
   list: { gap: 10 },
+  resultItem: { gap: 0 },
+  resultRouteRow: { minHeight: 46, marginTop: -1, borderWidth: 1, borderColor: palette.line, borderBottomLeftRadius: 9, borderBottomRightRadius: 9, backgroundColor: palette.surface, paddingLeft: 12, paddingRight: 7, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  resultRouteText: { flex: 1, color: palette.muted, fontSize: 11, fontWeight: '800' },
+  resultDirectionsButton: { minHeight: 34, borderRadius: 8, backgroundColor: palette.mint, paddingHorizontal: 11, alignItems: 'center', justifyContent: 'center' },
+  resultDirectionsText: { color: palette.jade, fontSize: 12, fontWeight: '900' },
   empty: { borderRadius: 10, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface, padding: 18, gap: 4 },
   emptyTitle: { color: palette.ink, fontSize: 17, fontWeight: '900' },
   emptyText: { color: palette.muted, fontSize: 13, lineHeight: 19 },
