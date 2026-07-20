@@ -6,6 +6,7 @@ import { ACCESS_LABELS, FEATURE_LABELS, TagChip } from './TagChip';
 import { palette, shadow } from './tokens';
 import type { Bathroom } from '@/src/data/types';
 import { FRESHNESS_LABELS, STATUS_LABELS, WAIT_LABELS, confidenceLabel } from '@/src/lib/bathroomSummary';
+import { formatDistance, formatWalkingEta } from '@/src/lib/directions';
 
 interface BathroomCardProps {
   bathroom: Bathroom;
@@ -33,7 +34,10 @@ export function BathroomCard({ bathroom, compact, onPress, selected }: BathroomC
           {hasCommunityScore ? <Text style={styles.score}>{bathroom.scores.community.toFixed(1)}</Text> : null}
         </View>
         <Text style={styles.meta} numberOfLines={1}>
-          {formatDistance(bathroom.distanceMeters)} · {ACCESS_LABELS[bathroom.access]} · {bathroom.priceNote}
+          {formatDistance(bathroom.distanceMeters)} · {formatWalkingEta(bathroom.distanceMeters)}
+        </Text>
+        <Text style={styles.meta} numberOfLines={1}>
+          {ACCESS_LABELS[bathroom.access]} · {bathroom.priceNote}
         </Text>
         <Text style={styles.conditions} numberOfLines={1}>
           {STATUS_LABELS[bathroom.summary.operatingStatus]} ·{' '}
@@ -165,9 +169,3 @@ const styles = StyleSheet.create({
     backgroundColor: palette.coralSoft,
   },
 });
-
-function formatDistance(meters: number | undefined): string {
-  if (meters == null || !Number.isFinite(meters)) return 'Distance unknown';
-  if (meters < 1_000) return `${Math.max(1, Math.round(meters))} m away`;
-  return `${(meters / 1_609.344).toFixed(meters < 16_093 ? 1 : 0)} mi away`;
-}

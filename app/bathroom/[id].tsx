@@ -1,7 +1,7 @@
 import * as Location from 'expo-location';
 import { Link, router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Linking, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { BathroomPhoto } from '@/components/app/BathroomPhoto';
 import { ScorePill } from '@/components/app/ScorePill';
@@ -26,6 +26,7 @@ import {
 } from '@/src/lib/bathroomSummary';
 import { distanceKm } from '@/src/lib/ranking';
 import { getRatingLabelDefinition } from '@/src/data/ratingLabels';
+import { buildWalkingDirectionsUrl, formatDistance, formatWalkingEta } from '@/src/lib/directions';
 import {
   aggregateRatingLabels,
   formatReviewAge,
@@ -153,7 +154,10 @@ export default function BathroomDetailScreen() {
     );
   }
 
-  const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${bathroom.latitude},${bathroom.longitude}&travelmode=walking`;
+  const directionsUrl = buildWalkingDirectionsUrl(
+    { latitude: bathroom.latitude, longitude: bathroom.longitude, name: bathroom.name },
+    Platform.OS === 'ios' ? 'ios' : Platform.OS === 'android' ? 'android' : 'web',
+  );
   const hasCommunityScore = (bathroom.scores.communityReviewCount ?? 0) > 0;
   const hasAnyScore = bathroom.scores.personal !== undefined || bathroom.scores.friends !== undefined || hasCommunityScore;
   const distanceLabel = formatDistance(distanceMeters ?? bathroom.distanceMeters);
@@ -375,18 +379,6 @@ function ReviewCard({ review }: { review: PublicBathroomReview }) {
 
 function formatDimension(value: number | undefined): string {
   return value === undefined ? 'Not rated yet' : `${value.toFixed(1)} / 5`;
-}
-
-function formatDistance(meters: number | undefined): string | undefined {
-  if (meters === undefined) return undefined;
-  if (meters < 1609) return `${Math.max(0.1, meters / 1609).toFixed(1)} mi away`;
-  return `${(meters / 1609).toFixed(1)} mi away`;
-}
-
-function formatWalkingEta(meters: number | undefined): string | undefined {
-  if (meters === undefined) return undefined;
-  const minutes = Math.max(1, Math.round(meters / 80));
-  return `about ${minutes} min walk`;
 }
 
 function statusTone(status: Bathroom['summary']['operatingStatus']) {
