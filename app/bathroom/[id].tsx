@@ -71,7 +71,7 @@ export default function BathroomDetailScreen() {
     <>
       <Stack.Screen options={{ title: bathroom.name }} />
       <Screen kicker={bathroom.neighborhood || bathroom.city} title={bathroom.name}>
-        <BathroomPhoto photo={bathroom.photos[0]} style={styles.hero} />
+        <BathroomPhoto fallbackLabel={bathroom.name} photo={bathroom.photos[0]} style={styles.hero} />
 
         {hasAnyScore ? (
           <View style={styles.scoreRow}>
@@ -92,7 +92,7 @@ export default function BathroomDetailScreen() {
             href={canContribute ? { pathname: '/modal', params: { bathroomId: bathroom.id } } : ({ pathname: '/sign-in' } as any)}
             asChild>
             <Pressable style={styles.primaryButton}>
-              <Text style={styles.primaryButtonText}>{canContribute ? 'Rate bathroom' : 'Sign in to rate'}</Text>
+              <Text style={styles.primaryButtonText}>{canContribute ? 'Rate this bathroom' : 'Sign in to rate'}</Text>
             </Pressable>
           </Link>
         </View>
