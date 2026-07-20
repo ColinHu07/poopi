@@ -18,7 +18,12 @@ export function BathroomCard({ bathroom, compact, onPress }: BathroomCardProps) 
   const hasCommunityScore = (bathroom.scores.communityReviewCount ?? 0) > 0;
   const content = (
     <>
-      <BathroomPhoto compact={Boolean(compact)} photo={bathroom.photos[0]} style={styles.image} />
+      <BathroomPhoto
+        compact={Boolean(compact)}
+        fallbackLabel={bathroom.name}
+        photo={bathroom.photos[0]}
+        style={styles.image}
+      />
       <View style={styles.body}>
         <View style={styles.topLine}>
           <Text style={styles.name} numberOfLines={1}>

@@ -8,10 +8,12 @@ export function BathroomPhoto({
   photo,
   style,
   compact = false,
+  fallbackLabel,
 }: {
   photo?: BathroomPhotoRecord;
   style?: StyleProp<ViewStyle>;
   compact?: boolean;
+  fallbackLabel?: string;
 }) {
   const [failed, setFailed] = useState(false);
 
@@ -28,10 +30,24 @@ export function BathroomPhoto({
           style={StyleSheet.absoluteFill}
         />
       ) : (
-        <View accessibilityLabel="No bathroom photo yet" style={styles.empty}>
-          <Text style={[styles.icon, compact && styles.compactIcon]}>▧</Text>
-          <Text style={[styles.emptyTitle, compact && styles.compactTitle]}>No photo yet</Text>
-          {!compact ? <Text style={styles.emptyCopy}>Be the first to add one</Text> : null}
+        <View
+          accessibilityLabel={`${fallbackLabel ?? 'Bathroom'} location placeholder; no bathroom photo yet`}
+          style={styles.locationPreview}>
+          <View style={styles.roadHorizontal} />
+          <View style={styles.roadVertical} />
+          <View style={[styles.block, styles.blockTopLeft]} />
+          <View style={[styles.block, styles.blockBottomRight]} />
+          <View style={[styles.pin, compact && styles.compactPin]}>
+            <Text style={[styles.pinDot, compact && styles.compactPinDot]}>•</Text>
+          </View>
+          <View style={[styles.locationCaption, compact && styles.compactLocationCaption]}>
+            <Text style={[styles.emptyTitle, compact && styles.compactTitle]} numberOfLines={1}>
+              {compact ? 'Location' : fallbackLabel || 'Location preview'}
+            </Text>
+            <Text style={[styles.emptyCopy, compact && styles.compactCopy]} numberOfLines={1}>
+              Bathroom photo needed
+            </Text>
+          </View>
         </View>
       )}
     </View>
@@ -43,22 +59,94 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: palette.mint,
   },
-  empty: {
+  locationPreview: {
     flex: 1,
     minHeight: 72,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 8,
+    backgroundColor: '#e5f3ee',
+    overflow: 'hidden',
   },
-  icon: {
-    color: palette.jade,
-    fontSize: 28,
-    fontWeight: '900',
+  roadHorizontal: {
+    position: 'absolute',
+    left: -20,
+    right: -20,
+    top: '42%',
+    height: 24,
+    backgroundColor: '#fffdf8',
+    transform: [{ rotate: '-8deg' }],
+  },
+  roadVertical: {
+    position: 'absolute',
+    top: -20,
+    bottom: -20,
+    left: '57%',
+    width: 20,
+    backgroundColor: '#fffdf8',
+    transform: [{ rotate: '9deg' }],
+  },
+  block: {
+    position: 'absolute',
+    width: 58,
+    height: 42,
+    borderRadius: 8,
+    backgroundColor: '#c9e4da',
+  },
+  blockTopLeft: {
+    left: -10,
+    top: 8,
+    transform: [{ rotate: '-8deg' }],
+  },
+  blockBottomRight: {
+    right: -12,
+    bottom: 8,
+    transform: [{ rotate: '-8deg' }],
+  },
+  pin: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 4,
+    borderColor: '#fffdf8',
+    backgroundColor: palette.coral,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 44,
+  },
+  compactPin: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 3,
+    marginBottom: 30,
+  },
+  pinDot: {
+    color: '#fffdf8',
+    fontSize: 30,
     lineHeight: 30,
+    fontWeight: '900',
   },
-  compactIcon: {
+  compactPinDot: {
     fontSize: 22,
-    lineHeight: 24,
+    lineHeight: 22,
+  },
+  locationCaption: {
+    position: 'absolute',
+    left: 10,
+    right: 10,
+    bottom: 10,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 253, 248, 0.94)',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    alignItems: 'center',
+  },
+  compactLocationCaption: {
+    left: 5,
+    right: 5,
+    bottom: 5,
+    paddingHorizontal: 4,
+    paddingVertical: 4,
   },
   emptyTitle: {
     color: palette.jade,
@@ -73,7 +161,9 @@ const styles = StyleSheet.create({
     color: palette.muted,
     fontSize: 11,
     fontWeight: '700',
-    marginTop: 2,
     textAlign: 'center',
+  },
+  compactCopy: {
+    fontSize: 8,
   },
 });

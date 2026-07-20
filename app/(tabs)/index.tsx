@@ -26,7 +26,7 @@ const FILTERS: Array<{ id: keyof BathroomFilters; label: string }> = [
 
 export default function MapScreen() {
   const { width } = useWindowDimensions();
-  const { session } = useAuth();
+  const { isAnonymous, session } = useAuth();
   const [filters, setFilters] = useState<BathroomFilters>({});
   const [center, setCenter] = useState(DEFAULT_MAP_CENTER);
   const [bathrooms, setBathrooms] = useState<Bathroom[]>([]);
@@ -53,6 +53,7 @@ export default function MapScreen() {
     [selectedId, visibleBathrooms],
   );
   const wideLayout = width >= 900;
+  const canContribute = Boolean(session && !isAnonymous);
 
   useEffect(() => {
     resolveLocation();
@@ -150,6 +151,28 @@ export default function MapScreen() {
           style={styles.searchInput}
           value={query}
         />
+      </View>
+
+      <View style={styles.ratePrompt}>
+        <View style={styles.ratePromptCopy}>
+          <Text style={styles.ratePromptTitle}>Used a bathroom recently?</Text>
+          <Text style={styles.ratePromptText}>
+            {selected ? `Rate ${selected.name} while it’s fresh.` : 'Choose a nearby bathroom and share a quick rating.'}
+          </Text>
+        </View>
+        <Link
+          href={
+            canContribute
+              ? selected
+                ? { pathname: '/modal', params: { bathroomId: selected.id } }
+                : ('/modal' as any)
+              : ('/sign-in' as any)
+          }
+          asChild>
+          <Pressable accessibilityRole="link" style={styles.rateButton}>
+            <Text style={styles.rateButtonText}>{canContribute ? 'Rate a bathroom' : 'Sign in to rate'}</Text>
+          </Pressable>
+        </Link>
       </View>
 
       <View style={styles.filterRow}>
@@ -277,6 +300,48 @@ const styles = StyleSheet.create({
     minHeight: 48,
     color: palette.ink,
     fontSize: 15,
+  },
+  ratePrompt: {
+    minHeight: 76,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#ffc4b5',
+    backgroundColor: palette.coralSoft,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  ratePromptCopy: {
+    flex: 1,
+    minWidth: 210,
+    gap: 3,
+  },
+  ratePromptTitle: {
+    color: palette.ink,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  ratePromptText: {
+    color: palette.muted,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+  rateButton: {
+    minHeight: 48,
+    borderRadius: 9,
+    backgroundColor: palette.coral,
+    paddingHorizontal: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rateButtonText: {
+    color: '#fffaf6',
+    fontSize: 14,
+    fontWeight: '900',
   },
   filterRow: {
     flexDirection: 'row',
