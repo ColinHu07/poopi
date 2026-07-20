@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { Bathroom } from '@/src/data/types';
+import type { MapViewport } from '@/src/lib/mapDiscovery';
 import { palette } from './tokens';
 
 interface BathroomMapProps {
@@ -9,6 +10,8 @@ interface BathroomMapProps {
   locationGranted: boolean;
   selectedId?: string;
   onSelect: (id: string) => void;
+  onViewportChange?: (viewport: MapViewport) => void;
+  recenterNonce?: number;
 }
 
 export function BathroomMap({ bathrooms, center, locationGranted, selectedId, onSelect }: BathroomMapProps) {

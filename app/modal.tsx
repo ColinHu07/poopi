@@ -79,11 +79,11 @@ interface PlaceDraft {
 }
 
 export default function ModalScreen() {
-  const { bathroomId } = useLocalSearchParams<{ bathroomId?: string }>();
+  const { bathroomId, initialQuery } = useLocalSearchParams<{ bathroomId?: string; initialQuery?: string }>();
   const { isAnonymous, loading: authLoading, session } = useAuth();
   const [bathroom, setBathroom] = useState<Bathroom | undefined>();
   const [candidates, setCandidates] = useState<Bathroom[]>([]);
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery ?? '');
   const [currentLocation, setCurrentLocation] = useState<PlaceSearchCenter>();
   const [searchCenter, setSearchCenter] = useState<PlaceSearchCenter>(DEFAULT_MAP_CENTER);
   const [placeResults, setPlaceResults] = useState<PlaceSearchResult[]>([]);

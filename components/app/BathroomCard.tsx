@@ -5,15 +5,16 @@ import { BathroomPhoto } from './BathroomPhoto';
 import { ACCESS_LABELS, FEATURE_LABELS, TagChip } from './TagChip';
 import { palette, shadow } from './tokens';
 import type { Bathroom } from '@/src/data/types';
-import { STATUS_LABELS, WAIT_LABELS } from '@/src/lib/bathroomSummary';
+import { FRESHNESS_LABELS, STATUS_LABELS, WAIT_LABELS, confidenceLabel } from '@/src/lib/bathroomSummary';
 
 interface BathroomCardProps {
   bathroom: Bathroom;
   compact?: boolean;
   onPress?: () => void;
+  selected?: boolean;
 }
 
-export function BathroomCard({ bathroom, compact, onPress }: BathroomCardProps) {
+export function BathroomCard({ bathroom, compact, onPress, selected }: BathroomCardProps) {
   const primaryTags = bathroom.features.slice(0, compact ? 2 : 4);
   const hasCommunityScore = (bathroom.scores.communityReviewCount ?? 0) > 0;
   const content = (
@@ -32,11 +33,14 @@ export function BathroomCard({ bathroom, compact, onPress }: BathroomCardProps) 
           {hasCommunityScore ? <Text style={styles.score}>{bathroom.scores.community.toFixed(1)}</Text> : null}
         </View>
         <Text style={styles.meta} numberOfLines={1}>
-          {bathroom.neighborhood} · {ACCESS_LABELS[bathroom.access]} · {bathroom.priceNote}
+          {formatDistance(bathroom.distanceMeters)} · {ACCESS_LABELS[bathroom.access]} · {bathroom.priceNote}
         </Text>
         <Text style={styles.conditions} numberOfLines={1}>
           {STATUS_LABELS[bathroom.summary.operatingStatus]} ·{' '}
-          {bathroom.summary.medianWait ? WAIT_LABELS[bathroom.summary.medianWait] : 'Wait unknown'} ·{' '}
+          {bathroom.summary.medianWait ? WAIT_LABELS[bathroom.summary.medianWait] : 'Wait unknown'}
+        </Text>
+        <Text style={styles.trust} numberOfLines={1}>
+          {FRESHNESS_LABELS[bathroom.summary.freshness]} data · {confidenceLabel(bathroom.summary.confidence)} confidence ·{' '}
           {bathroom.summary.reviewCount} {bathroom.summary.reviewCount === 1 ? 'review' : 'reviews'}
         </Text>
         <View style={styles.tagRow}>
@@ -63,7 +67,7 @@ export function BathroomCard({ bathroom, compact, onPress }: BathroomCardProps) 
             : bathroom.name
         }
         onPress={onPress}
-        style={({ pressed }) => [styles.card, compact && styles.compact, pressed && styles.pressed]}>
+        style={({ pressed }) => [styles.card, compact && styles.compact, selected && styles.selected, pressed && styles.pressed]}>
         {content}
       </Pressable>
     );
@@ -140,6 +144,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
   },
+  trust: {
+    color: palette.muted,
+    fontSize: 11,
+    fontWeight: '700',
+  },
   tagRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -150,4 +159,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
+  selected: {
+    borderColor: palette.coral,
+    borderWidth: 2,
+    backgroundColor: palette.coralSoft,
+  },
 });
+
+function formatDistance(meters: number | undefined): string {
+  if (meters == null || !Number.isFinite(meters)) return 'Distance unknown';
+  if (meters < 1_000) return `${Math.max(1, Math.round(meters))} m away`;
+  return `${(meters / 1_609.344).toFixed(meters < 16_093 ? 1 : 0)} mi away`;
+}
