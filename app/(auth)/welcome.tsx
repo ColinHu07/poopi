@@ -1,6 +1,6 @@
 import { Link, Redirect, router } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { GoogleAuthButton } from '@/components/app/GoogleAuthButton';
 import { palette } from '@/components/app/tokens';
@@ -33,12 +33,7 @@ export default function WelcomeScreen() {
 
   return (
     <View style={styles.screen}>
-      <View style={styles.brandMark}>
-        <View style={styles.flattenedPTopSerif} />
-        <View style={styles.flattenedPStem} />
-        <View style={styles.flattenedPBowl} />
-        <View style={styles.flattenedPBottomSerif} />
-      </View>
+      <Image accessibilityLabel="Poopi mascot" source={require('../../assets/images/icon.png')} style={styles.brandMark} />
       <Text style={styles.logo}>poopi</Text>
       <Text style={styles.title}>Find the bathroom that will not betray you.</Text>
       <Text style={styles.copy}>
@@ -104,56 +99,12 @@ const styles = StyleSheet.create({
     backgroundColor: palette.paper,
   },
   brandMark: {
-    width: 76,
-    height: 76,
-    borderRadius: 18,
-    backgroundColor: '#f8f7f2',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: palette.line,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  flattenedPStem: {
-    position: 'absolute',
-    top: 17,
-    left: 17,
-    width: 15,
-    height: 48,
-    backgroundColor: '#596169',
-  },
-  flattenedPBowl: {
-    position: 'absolute',
-    top: 23,
-    left: 28,
-    width: 37,
-    height: 31,
-    borderWidth: 9,
-    borderLeftWidth: 0,
-    borderColor: '#596169',
-    borderTopRightRadius: 18,
-    borderBottomRightRadius: 18,
-  },
-  flattenedPTopSerif: {
-    position: 'absolute',
-    zIndex: 2,
-    top: 14,
-    left: 12,
-    width: 29,
-    height: 7,
-    backgroundColor: '#596169',
-  },
-  flattenedPBottomSerif: {
-    position: 'absolute',
-    zIndex: 2,
-    top: 62,
-    left: 12,
-    width: 29,
-    height: 7,
-    backgroundColor: '#596169',
+    width: 96,
+    height: 96,
+    borderRadius: 22,
   },
   logo: {
-    color: '#596169',
+    color: palette.jade,
     fontSize: 38,
     lineHeight: 42,
     fontWeight: '700',

@@ -391,13 +391,11 @@ function RankPreview({
 
 function PoopiIcon({ size = 34 }: { size?: number }) {
   return (
-    <View style={[styles.poopiIcon, { width: size, height: size, borderRadius: size * 0.3 }]}>
-      <View style={styles.poopiIconBowl} />
-      <View style={styles.poopiIconSeat} />
-      <View style={styles.poopiIconDotLarge} />
-      <View style={styles.poopiIconDotSmall} />
-      <View style={styles.poopiIconSpark} />
-    </View>
+    <Image
+      accessibilityLabel="Poopi mascot"
+      source={require('../assets/images/icon.png')}
+      style={{ width: size, height: size, borderRadius: size * 0.3 }}
+    />
   );
 }
 
