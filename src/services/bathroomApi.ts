@@ -1065,7 +1065,7 @@ export async function recordComparison(winnerId: string, loserId: string): Promi
     loserId,
   );
 
-  await client.from('user_bathroom_ratings').upsert(
+  const { error: ratingError } = await client.from('user_bathroom_ratings').upsert(
     ratings.map((rating) => ({
       user_id: user.id,
       bathroom_id: rating.bathroomId,
@@ -1075,6 +1075,9 @@ export async function recordComparison(winnerId: string, loserId: string): Promi
     })),
     { onConflict: 'user_id,bathroom_id' },
   );
+  if (ratingError) {
+    throw ratingError;
+  }
 
   return ratings;
 }

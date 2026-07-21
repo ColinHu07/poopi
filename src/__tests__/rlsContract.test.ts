@@ -6,6 +6,10 @@ const migration = readFileSync(
   'supabase/migrations/20260719040000_public_reads_and_identity_bound_writes.sql',
   'utf8',
 );
+const comparisonRepairMigration = readFileSync(
+  'supabase/migrations/20260721010000_repair_comparison_vote_storage.sql',
+  'utf8',
+);
 
 test('account contribution policies require a permanent identity', () => {
   for (const policy of [
@@ -33,6 +37,16 @@ test('anonymous comparison votes stay identity-bound and rate-limited', () => {
   assert.match(voteFunction, /interval '1 hour'/);
   assert.doesNotMatch(voteFunction, /is_permanent_user/);
   assert.match(voteFunction, /grant execute[^;]+to authenticated/s);
+});
+
+test('comparison storage repair restores canonical pair columns and conflict handling', () => {
+  assert.match(comparisonRepairMigration, /add column if not exists pair_low_bathroom_id uuid/i);
+  assert.match(comparisonRepairMigration, /add column if not exists pair_high_bathroom_id uuid/i);
+  assert.match(comparisonRepairMigration, /pairwise_comparisons_one_vote_per_pair/i);
+  assert.match(
+    comparisonRepairMigration,
+    /on conflict on constraint pairwise_comparisons_one_vote_per_pair/i,
+  );
 });
 
 test('public reviews expose safe fields without private notes or profile identity', () => {
