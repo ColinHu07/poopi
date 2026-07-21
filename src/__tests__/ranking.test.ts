@@ -8,7 +8,10 @@ import {
   expectedScore,
   kFactor,
   rankCommunityComparisons,
+  reviewQualityScore,
+  reviewSeedRating,
   selectBinaryInsertionPair,
+  selectSmartComparisonPair,
   voterWeight,
 } from '@/src/lib/ranking';
 import type { PairwiseComparison, UserRating } from '@/src/data/types';
@@ -44,6 +47,17 @@ test('displayScore maps rank into a bounded 0 to 10 display scale', () => {
 test('communityScore uses a Bayesian prior', () => {
   assert.equal(communityScore([], 6, 5), 6);
   assert.equal(communityScore([10], 6, 5), 6.7);
+});
+
+test('structured review dimensions seed a sensible personal rating', () => {
+  assert.equal(
+    reviewQualityScore({ sentiment: 'liked', cleanlinessRating: 5, odorRating: 5, privacyRating: 4 }),
+    8.8,
+  );
+  assert.ok(
+    reviewSeedRating({ sentiment: 'liked', cleanlinessRating: 5, odorRating: 5, privacyRating: 4 }) >
+      reviewSeedRating({ sentiment: 'disliked', cleanlinessRating: 2, odorRating: 1, privacyRating: 2 }),
+  );
 });
 
 test('voterWeight grows slowly with history and caps expert influence at 2x', () => {
@@ -103,4 +117,70 @@ test('selectBinaryInsertionPair picks the median unasked candidate and stops aft
     ]),
     null,
   );
+});
+
+test('smart comparison pairs a new review with a recent bathroom of similar quality', () => {
+  const pair = selectSmartComparisonPair(
+    [
+      {
+        bathroomId: 'new',
+        sentiment: 'liked',
+        cleanlinessRating: 4,
+        odorRating: 4,
+        privacyRating: 5,
+        personalScore: 8.4,
+        comparisons: 0,
+        reviewedAt: '2026-07-21T12:00:00.000Z',
+      },
+      {
+        bathroomId: 'old-close',
+        sentiment: 'liked',
+        cleanlinessRating: 4,
+        odorRating: 4,
+        privacyRating: 4,
+        personalScore: 8.2,
+        comparisons: 2,
+        reviewedAt: '2026-01-01T12:00:00.000Z',
+      },
+      {
+        bathroomId: 'recent-close',
+        sentiment: 'liked',
+        cleanlinessRating: 4,
+        odorRating: 4,
+        privacyRating: 4,
+        personalScore: 8.2,
+        comparisons: 1,
+        reviewedAt: '2026-07-20T12:00:00.000Z',
+      },
+      {
+        bathroomId: 'recent-far',
+        sentiment: 'disliked',
+        cleanlinessRating: 1,
+        odorRating: 2,
+        privacyRating: 1,
+        personalScore: 3.1,
+        comparisons: 1,
+        reviewedAt: '2026-07-21T11:00:00.000Z',
+      },
+    ],
+    [],
+    'new',
+    new Date('2026-07-21T13:00:00.000Z'),
+  );
+
+  assert.equal(pair?.focusId, 'new');
+  assert.equal(pair?.opponentId, 'recent-close');
+});
+
+test('smart comparison does not repeat a pair that was already answered', () => {
+  const candidates = [
+    { bathroomId: 'new', sentiment: 'fine' as const, personalScore: 6, comparisons: 0, reviewedAt: '2026-07-21' },
+    { bathroomId: 'same', sentiment: 'fine' as const, personalScore: 6.1, comparisons: 0, reviewedAt: '2026-07-20' },
+    { bathroomId: 'next', sentiment: 'liked' as const, personalScore: 7.4, comparisons: 0, reviewedAt: '2026-07-19' },
+  ];
+  const answered: PairwiseComparison[] = [
+    { id: '1', userId: 'u', winnerId: 'new', loserId: 'same', createdAt: '2026-07-21' },
+  ];
+
+  assert.equal(selectSmartComparisonPair(candidates, answered, 'new')?.opponentId, 'next');
 });

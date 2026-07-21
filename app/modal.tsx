@@ -34,6 +34,7 @@ import {
 } from '@/src/services/bathroomApi';
 import {
   findCurrentPlace,
+  normalizePlaceQuery,
   type PlaceSearchCenter,
   type PlaceSearchResult,
   searchPlaces,
@@ -117,12 +118,12 @@ export default function ModalScreen() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [error, setError] = useState('');
   const filteredCandidates = useMemo(() => {
-    const normalized = query.trim().toLocaleLowerCase();
+    const normalized = normalizePlaceQuery(query);
     if (!normalized) return candidates;
     return candidates.filter((candidate) =>
       [candidate.name, candidate.address, candidate.neighborhood, candidate.city]
         .filter(Boolean)
-        .some((value) => value.toLocaleLowerCase().includes(normalized)),
+        .some((value) => normalizePlaceQuery(value).includes(normalized)),
     );
   }, [candidates, query]);
 
@@ -363,10 +364,17 @@ export default function ModalScreen() {
       } else {
         await logVisit(observation);
       }
-      router.replace({
-        pathname: '/bathroom/[id]',
-        params: { id: bathroom.id, reviewed: '1', updated: editingVisitId ? '1' : undefined },
-      });
+      router.replace(
+        editingVisitId
+          ? {
+              pathname: '/bathroom/[id]',
+              params: { id: bathroom.id, reviewed: '1', updated: '1' },
+            }
+          : {
+              pathname: '/(tabs)/rank',
+              params: { focusBathroomId: bathroom.id, fromReview: '1' },
+            },
+      );
     } catch (err) {
       setError(errorMessage(err, 'Unable to save visit.'));
     } finally {
@@ -421,7 +429,7 @@ export default function ModalScreen() {
           <TextInput
             accessibilityLabel="Place name"
             onChangeText={(name) => setDraft((value) => (value ? { ...value, name } : value))}
-            placeholder="Example: Wenwen"
+            placeholder="Example: a restaurant or store"
             placeholderTextColor={palette.muted}
             style={styles.fieldInput}
             value={draft.name}
@@ -576,7 +584,7 @@ export default function ModalScreen() {
               setPlaceResults([]);
             }}
             onSubmitEditing={searchRealPlaces}
-            placeholder="Try Wenwen or an address"
+            placeholder="Type a place or address"
             placeholderTextColor={palette.muted}
             returnKeyType="search"
             style={styles.searchInput}
