@@ -36,7 +36,12 @@ import {
 } from '@/src/lib/reviewPresentation';
 
 export default function BathroomDetailScreen() {
-  const { id, reviewed, updated } = useLocalSearchParams<{ id: string; reviewed?: string; updated?: string }>();
+  const { id, reviewed, updated, deleted } = useLocalSearchParams<{
+    id: string;
+    reviewed?: string;
+    updated?: string;
+    deleted?: string;
+  }>();
   const { isAnonymous, session } = useAuth();
   const [bathroom, setBathroom] = useState<Bathroom>();
   const [reviews, setReviews] = useState<PublicBathroomReview[]>([]);
@@ -46,11 +51,13 @@ export default function BathroomDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionMessage, setActionMessage] = useState(
-    reviewed === '1'
-      ? updated === '1'
-        ? 'Your review was updated and the community summary was refreshed.'
-        : 'Your review was saved and the community summary was refreshed.'
-      : '',
+    deleted === '1'
+      ? 'Your rating was deleted. You can rate this bathroom again anytime.'
+      : reviewed === '1'
+        ? updated === '1'
+          ? 'Your review was updated and the community summary was refreshed.'
+          : 'Your review was saved and the community summary was refreshed.'
+        : '',
   );
   const [actionError, setActionError] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
@@ -58,6 +65,11 @@ export default function BathroomDetailScreen() {
   const canContribute = Boolean(session && !isAnonymous);
 
   useEffect(() => {
+    if (deleted === '1') {
+      setActionError(false);
+      setActionMessage('Your rating was deleted. You can rate this bathroom again anytime.');
+      return;
+    }
     if (reviewed !== '1') return;
     setActionError(false);
     setActionMessage(
@@ -65,7 +77,7 @@ export default function BathroomDetailScreen() {
         ? 'Your review was updated and the community summary was refreshed.'
         : 'Your review was saved and the community summary was refreshed.',
     );
-  }, [reviewed, updated]);
+  }, [deleted, reviewed, updated]);
 
   useEffect(() => {
     let cancelled = false;
@@ -90,7 +102,7 @@ export default function BathroomDetailScreen() {
     return () => {
       cancelled = true;
     };
-  }, [id, canContribute, reviewed, updated]);
+  }, [id, canContribute, deleted, reviewed, updated]);
 
   useEffect(() => {
     if (!bathroom) return;

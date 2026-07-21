@@ -1,5 +1,6 @@
 import * as Location from 'expo-location';
 import { StatusBar } from 'expo-status-bar';
+import { SymbolView } from 'expo-symbols';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Linking, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -23,6 +24,7 @@ import { useAuth } from '@/src/providers/AuthProvider';
 import {
   createBathroomCandidate,
   DEFAULT_MAP_CENTER,
+  deleteVisitObservation,
   getBathroomById,
   getLatestOwnVisit,
   getNearbyBathrooms,
@@ -110,6 +112,8 @@ export default function ModalScreen() {
   const [originalObservedAt, setOriginalObservedAt] = useState<string>();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [error, setError] = useState('');
   const filteredCandidates = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
@@ -366,6 +370,21 @@ export default function ModalScreen() {
       setError(errorMessage(err, 'Unable to save visit.'));
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function deleteReview() {
+    if (!bathroom || !editingVisitId) return;
+    setDeleting(true);
+    setError('');
+    try {
+      await deleteVisitObservation(editingVisitId, bathroom.id);
+      router.replace({ pathname: '/bathroom/[id]', params: { id: bathroom.id, deleted: '1' } });
+    } catch (err) {
+      setDeleteConfirmOpen(false);
+      setError(errorMessage(err, 'Unable to delete this review.'));
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -673,9 +692,49 @@ export default function ModalScreen() {
     <Screen kicker={editingVisitId ? 'Your review' : 'New visit'} title={bathroom.name}>
       {editingVisitId ? (
         <View style={styles.editingBanner}>
-          <Text style={styles.editingEyebrow}>EDIT MODE</Text>
-          <Text style={styles.editingTitle}>Your last review is ready to update.</Text>
+          <View style={styles.editingBannerHeader}>
+            <View style={styles.editingBannerCopy}>
+              <Text style={styles.editingEyebrow}>EDIT MODE</Text>
+              <Text style={styles.editingTitle}>Your last review is ready to update.</Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Delete this rating"
+              hitSlop={6}
+              onPress={() => setDeleteConfirmOpen(true)}
+              style={({ pressed }) => [styles.deleteIconButton, pressed && styles.pressed]}>
+              <SymbolView
+                name={{ ios: 'trash', android: 'delete', web: 'delete' }}
+                size={20}
+                tintColor={palette.coral}
+                fallback={<Text style={styles.deleteIconFallback}>×</Text>}
+              />
+            </Pressable>
+          </View>
           <Text style={styles.editingCopy}>Change any score, label, note, wait, access, or privacy setting below.</Text>
+          {deleteConfirmOpen ? (
+            <View style={styles.deleteConfirmBox}>
+              <Text style={styles.deleteConfirmTitle}>Delete this rating?</Text>
+              <Text style={styles.deleteConfirmCopy}>Its labels and note will also be removed. You can rate this bathroom again later.</Text>
+              <View style={styles.deleteConfirmActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={deleting}
+                  onPress={() => setDeleteConfirmOpen(false)}
+                  style={styles.deleteCancelButton}>
+                  <Text style={styles.deleteCancelText}>Keep it</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: deleting }}
+                  disabled={deleting}
+                  onPress={deleteReview}
+                  style={styles.deleteReviewButton}>
+                  {deleting ? <ActivityIndicator color={palette.surface} /> : <Text style={styles.deleteReviewText}>Delete rating</Text>}
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
         </View>
       ) : null}
       <Pressable
@@ -916,6 +975,15 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 4,
   },
+  editingBannerHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  editingBannerCopy: {
+    flex: 1,
+    gap: 4,
+  },
   editingEyebrow: {
     color: palette.jade,
     fontSize: 11,
@@ -932,6 +1000,72 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     fontWeight: '700',
+  },
+  deleteIconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#ffc4b5',
+    backgroundColor: palette.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteIconFallback: {
+    color: palette.coral,
+    fontSize: 24,
+    fontWeight: '900',
+  },
+  deleteConfirmBox: {
+    marginTop: 8,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#ffc4b5',
+    backgroundColor: palette.surface,
+    padding: 13,
+    gap: 8,
+  },
+  deleteConfirmTitle: {
+    color: palette.coral,
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  deleteConfirmCopy: {
+    color: palette.ink,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '700',
+  },
+  deleteConfirmActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  deleteCancelButton: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 13,
+    borderWidth: 1.5,
+    borderColor: palette.line,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteCancelText: {
+    color: palette.ink,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  deleteReviewButton: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 13,
+    backgroundColor: palette.coral,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteReviewText: {
+    color: palette.surface,
+    fontSize: 13,
+    fontWeight: '900',
   },
   pickerIntro: {
     color: palette.ink,
