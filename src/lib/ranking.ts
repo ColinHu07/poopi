@@ -97,10 +97,26 @@ export function applyEloComparison(
 
   winner.rating = Math.round(winner.rating + winnerK * (1 - winnerExpected));
   loser.rating = Math.round(loser.rating + loserK * (0 - loserExpected));
+  if (winner.rating <= loser.rating) {
+    const midpoint = Math.round((winner.rating + loser.rating) / 2);
+    winner.rating = midpoint + 12;
+    loser.rating = midpoint - 12;
+  }
   winner.comparisons += 1;
   loser.comparisons += 1;
 
   return next;
+}
+
+/**
+ * Keeps review-only bathrooms on their structured review score, then switches
+ * to the comparison rating as soon as the first head-to-head answer places it.
+ */
+export function personalScoreFromRating(rating: UserRating, reviewScore?: number): number {
+  if (rating.comparisons === 0 && Number.isFinite(reviewScore)) {
+    return roundToTenth(clamp(Number(reviewScore), 1, 10));
+  }
+  return roundToTenth(clamp(6 + (rating.rating - 1500) / 50, 1, 10));
 }
 
 export function sortRatings(ratings: UserRating[]): UserRating[] {

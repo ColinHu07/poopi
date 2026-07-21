@@ -7,6 +7,7 @@ import {
   displayScore,
   expectedScore,
   kFactor,
+  personalScoreFromRating,
   rankCommunityComparisons,
   reviewQualityScore,
   reviewSeedRating,
@@ -36,6 +37,28 @@ test('applyEloComparison rewards the winner and penalizes the loser', () => {
   const next = applyEloComparison(ratings, 'a', 'b');
   assert.equal(next.find((rating) => rating.bathroomId === 'a')?.rating, 1524);
   assert.equal(next.find((rating) => rating.bathroomId === 'b')?.rating, 1476);
+});
+
+test('an upset comparison places the chosen winner above the established bathroom', () => {
+  const next = applyEloComparison(
+    [
+      { bathroomId: 'new', rating: 1500, comparisons: 0, sentiment: 'fine' },
+      { bathroomId: 'established', rating: 1640, comparisons: 0, sentiment: 'liked' },
+    ],
+    'new',
+    'established',
+  );
+
+  const winner = next.find(({ bathroomId }) => bathroomId === 'new')!;
+  const loser = next.find(({ bathroomId }) => bathroomId === 'established')!;
+  assert.ok(winner.rating > loser.rating);
+  assert.ok(personalScoreFromRating(winner) > personalScoreFromRating(loser));
+});
+
+test('review-only bathrooms keep their structured score until a comparison places them', () => {
+  const rating: UserRating = { bathroomId: 'new', rating: 1500, comparisons: 0, sentiment: 'fine' };
+  assert.equal(personalScoreFromRating(rating, 8.8), 8.8);
+  assert.equal(personalScoreFromRating({ ...rating, rating: 1525, comparisons: 1 }, 8.8), 6.5);
 });
 
 test('displayScore maps rank into a bounded 0 to 10 display scale', () => {

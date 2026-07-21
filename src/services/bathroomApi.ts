@@ -30,13 +30,12 @@ import { normalizeName } from '@/src/lib/dedupe';
 import {
   applyEloComparison,
   distanceKm,
+  personalScoreFromRating,
   rankCommunityComparisons,
   recommendationScore,
   reviewQualityScore,
   reviewSeedRating,
   selectSmartComparisonPair,
-  scoreMapFromRatings,
-  sortRatings,
 } from '@/src/lib/ranking';
 import { getCurrentProfile } from '@/src/services/auth';
 import {
@@ -251,7 +250,6 @@ export async function getRankedBathrooms(): Promise<RankedBathroom[]> {
     comparisons: Number(row.comparisons),
     sentiment: row.sentiment as Sentiment,
   }));
-  const scores = scoreMapFromRatings(ratings);
   const bathroomIds = ratings.map(({ bathroomId }) => bathroomId);
   const latestVisitByBathroom = new Map<string, any>();
   if (bathroomIds.length) {
@@ -268,10 +266,13 @@ export async function getRankedBathrooms(): Promise<RankedBathroom[]> {
     }
   }
 
-  return sortRatings(ratings)
-    .map((rating, index) => {
+  const items = await Promise.all(
+    ratings.map(async (rating) => {
       const row = data.find((candidate: any) => candidate.bathroom_id === rating.bathroomId);
-      const bathroom = row?.bathrooms ? mapSupabaseBathroom(row.bathrooms as unknown as SupabaseBathroomRow) : undefined;
+      const bathroomRow = row?.bathrooms
+        ? await hydrateBathroomPhotoUrls(row.bathrooms as unknown as SupabaseBathroomRow)
+        : undefined;
+      const bathroom = bathroomRow ? mapSupabaseBathroom(bathroomRow) : undefined;
       if (!bathroom) {
         return null;
       }
@@ -282,19 +283,29 @@ export async function getRankedBathrooms(): Promise<RankedBathroom[]> {
         odorRating: visit?.odor_rating ?? undefined,
         privacyRating: visit?.privacy_rating ?? undefined,
       };
+      const qualityScore = reviewQualityScore(qualityInput);
       return {
         bathroom: cacheBathroom(bathroom),
         rating,
-        score: scores[rating.bathroomId] ?? bathroom.scores.community,
-        rank: index + 1,
-        qualityScore: reviewQualityScore(qualityInput),
+        score: personalScoreFromRating(rating, qualityScore),
+        rank: 0,
+        qualityScore,
         reviewedAt: visit?.observed_at ?? row.updated_at ?? undefined,
         cleanlinessRating: qualityInput.cleanlinessRating,
         odorRating: qualityInput.odorRating,
         privacyRating: qualityInput.privacyRating,
       };
-    })
-    .filter(Boolean) as RankedBathroom[];
+    }),
+  );
+
+  return (items.filter(Boolean) as RankedBathroom[])
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        b.rating.rating - a.rating.rating ||
+        a.bathroom.name.localeCompare(b.bathroom.name),
+    )
+    .map((item, index) => ({ ...item, rank: index + 1 }));
 }
 
 export async function getComparisonCandidates(preferredBathroomId?: string): Promise<ComparisonCandidates> {
@@ -1037,7 +1048,19 @@ export async function recordComparison(winnerId: string, loserId: string): Promi
 
   const ranked = await getRankedBathrooms();
   const ratings = applyEloComparison(
-    ranked.map((item) => item.rating),
+    ranked.map((item) =>
+      item.rating.comparisons === 0
+        ? {
+            ...item.rating,
+            rating: reviewSeedRating({
+              sentiment: item.rating.sentiment,
+              cleanlinessRating: item.cleanlinessRating,
+              odorRating: item.odorRating,
+              privacyRating: item.privacyRating,
+            }),
+          }
+        : item.rating,
+    ),
     winnerId,
     loserId,
   );
