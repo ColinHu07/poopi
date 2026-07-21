@@ -7,6 +7,7 @@ import { ScorePill } from '@/components/app/ScorePill';
 import { Screen } from '@/components/app/Screen';
 import { TagChip } from '@/components/app/TagChip';
 import { palette, shadow } from '@/components/app/tokens';
+import { errorMessage } from '@/src/lib/errors';
 import { getComparisonCandidates, recordComparison, type RankedBathroom } from '@/src/services/bathroomApi';
 import { useAuth } from '@/src/providers/AuthProvider';
 
@@ -44,7 +45,7 @@ export default function RankScreen() {
       setRight(next.right);
       setQualityGap(next.qualityGap);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to load your comparisons.');
+      setError(errorMessage(err, 'Unable to load your comparisons.'));
     } finally {
       setLoading(false);
     }
@@ -68,7 +69,7 @@ export default function RankScreen() {
       }
       await loadRanked();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to save this comparison.');
+      setError(errorMessage(err, 'Unable to save this comparison.'));
     } finally {
       setSaving(false);
     }

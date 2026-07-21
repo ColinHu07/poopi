@@ -33,7 +33,7 @@
 - Responsive static web export and Sites packaging for phone-browser testing.
 - Signed-in bathroom photo capture/library selection, client-side JPEG normalization, private storage, owner previews, and moderation-queued records.
 - A visible mascot-led brand system across screen headers, web map pins, and the photo flow.
-- `npm run typecheck` passes and all 67 current automated tests pass.
+- `npm run typecheck` passes and all 68 current automated tests pass.
 
 ### Incomplete or misleading today
 
