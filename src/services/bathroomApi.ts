@@ -1,3 +1,5 @@
+import { decode as decodeBase64 } from 'base64-arraybuffer';
+
 import type {
   AccessType,
   Bathroom,
@@ -108,6 +110,9 @@ type SupabaseBathroomRow = {
 };
 
 const bathroomCache = new Map<string, Bathroom>();
+const detailedBathroomCache = new Set<string>();
+const BATHROOM_PHOTO_BUCKET = 'bathroom-photos';
+const MAX_PHOTO_BYTES = 6 * 1024 * 1024;
 
 export async function getNearbyBathrooms(input: NearbyBathroomInput): Promise<Bathroom[]> {
   const filters = input.filters ?? {};
@@ -146,7 +151,7 @@ export async function getNearbyBathrooms(input: NearbyBathroomInput): Promise<Ba
 }
 
 export async function getBathroomById(id: string): Promise<Bathroom | undefined> {
-  if (bathroomCache.has(id)) {
+  if (bathroomCache.has(id) && detailedBathroomCache.has(id)) {
     return bathroomCache.get(id);
   }
   if (!isSupabaseConfigured || !supabase) {
@@ -177,8 +182,9 @@ export async function getBathroomById(id: string): Promise<Bathroom | undefined>
 
   const { data: summaryRows } = await supabase.rpc('bathroom_summary', { p_bathroom_id: id });
   const summary = Array.isArray(summaryRows) ? summaryRows[0] : undefined;
-  return cacheBathroom(
-    mapSupabaseBathroom({ ...(data as unknown as SupabaseBathroomRow), ...(summary ?? {}) }),
+  const bathroomRow = await hydrateBathroomPhotoUrls(data as unknown as SupabaseBathroomRow);
+  return cacheDetailedBathroom(
+    mapSupabaseBathroom({ ...bathroomRow, ...(summary ?? {}) }),
   );
 }
 
@@ -535,6 +541,74 @@ async function createBathroomCandidateWithoutCanonicalRpc(
       longitude: input.longitude,
     }),
   );
+}
+
+export interface BathroomPhotoUploadInput {
+  bathroomId: string;
+  base64: string;
+  alt: string;
+}
+
+export async function uploadBathroomPhoto(input: BathroomPhotoUploadInput): Promise<BathroomPhoto> {
+  if (!isUuid(input.bathroomId)) {
+    throw new Error('Choose a bathroom before adding a photo.');
+  }
+  if (!input.base64) {
+    throw new Error('Choose or take a photo first.');
+  }
+
+  const client = requireSupabase();
+  const user = await requirePermanentUser('upload a bathroom photo');
+  const bytes = decodeBase64(input.base64);
+  if (bytes.byteLength > MAX_PHOTO_BYTES) {
+    throw new Error('That photo is still too large. Choose a photo under 6 MB.');
+  }
+
+  const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+  const storagePath = `${user.id}/${input.bathroomId}/${fileName}`;
+  const { error: uploadError } = await client.storage
+    .from(BATHROOM_PHOTO_BUCKET)
+    .upload(storagePath, bytes, { contentType: 'image/jpeg', upsert: false });
+
+  if (uploadError) {
+    if (/bucket|not found/i.test(uploadError.message)) {
+      throw new Error('Photo storage is not ready yet. Apply Poopi’s latest Supabase migration, then retry.');
+    }
+    throw uploadError;
+  }
+
+  const { data: photoRow, error: insertError } = await client
+    .from('photos')
+    .insert({
+      bathroom_id: input.bathroomId,
+      user_id: user.id,
+      storage_path: storagePath,
+      alt: input.alt.trim() || 'User-submitted bathroom photo',
+      moderation_status: 'queued',
+    })
+    .select('id, storage_path, alt, moderation_status')
+    .single();
+
+  if (insertError || !photoRow) {
+    await client.storage.from(BATHROOM_PHOTO_BUCKET).remove([storagePath]);
+    throw insertError ?? new Error('The photo uploaded, but Poopi could not attach it to this bathroom.');
+  }
+
+  const signedUrl = await createBathroomPhotoUrl(photoRow.storage_path);
+  const photo: BathroomPhoto = {
+    id: String(photoRow.id),
+    url: signedUrl,
+    alt: String(photoRow.alt),
+    attribution: 'User submitted',
+    moderationStatus: 'queued',
+  };
+
+  const cached = bathroomCache.get(input.bathroomId);
+  if (cached) {
+    bathroomCache.set(input.bathroomId, { ...cached, photos: [photo, ...cached.photos] });
+  }
+  detailedBathroomCache.delete(input.bathroomId);
+  return photo;
 }
 
 export interface VisitObservationInput {
@@ -960,7 +1034,8 @@ async function getNearbyFromSupabase(input: NearbyBathroomInput): Promise<Bathro
     return [];
   }
 
-  return (data as SupabaseBathroomRow[]).map(mapSupabaseBathroom).map(cacheBathroom);
+  const rows = await hydrateNearbyBathroomPhotos(data as SupabaseBathroomRow[]);
+  return rows.map(mapSupabaseBathroom).map(cacheBathroom);
 }
 
 async function invokeNearbyImports(input: NearbyBathroomInput): Promise<void> {
@@ -1058,6 +1133,67 @@ function mapSupabaseBathroom(row: SupabaseBathroomRow): Bathroom {
 function cacheBathroom<T extends Bathroom>(bathroom: T): T {
   bathroomCache.set(bathroom.id, bathroom);
   return bathroom;
+}
+
+function cacheDetailedBathroom<T extends Bathroom>(bathroom: T): T {
+  detailedBathroomCache.add(bathroom.id);
+  return cacheBathroom(bathroom);
+}
+
+async function hydrateBathroomPhotoUrls(row: SupabaseBathroomRow): Promise<SupabaseBathroomRow> {
+  if (!row.photos?.length) return row;
+  const photos = await Promise.all(
+    row.photos.map(async (photo) => ({ ...photo, storage_path: await createBathroomPhotoUrl(photo.storage_path) })),
+  );
+  return { ...row, photos };
+}
+
+async function hydrateNearbyBathroomPhotos(rows: SupabaseBathroomRow[]): Promise<SupabaseBathroomRow[]> {
+  if (!rows.length || !supabase) return rows;
+
+  const ids = rows.map(({ id }) => id).filter(isUuid);
+  if (!ids.length) return rows;
+  const { data, error } = await supabase
+    .from('photos')
+    .select('id, bathroom_id, storage_path, alt, moderation_status')
+    .in('bathroom_id', ids)
+    .order('created_at', { ascending: true });
+  if (error || !data?.length) return rows;
+
+  const hydratedPhotos = await Promise.all((data as Array<{
+    id: string;
+    bathroom_id: string;
+    storage_path: string;
+    alt: string;
+    moderation_status: BathroomPhoto['moderationStatus'];
+  }>).map(async (photo) => ({
+    ...photo,
+    storage_path: await createBathroomPhotoUrl(photo.storage_path),
+  })));
+
+  const photosByBathroom = new Map<string, SupabaseBathroomRow['photos']>();
+  for (const photo of hydratedPhotos) {
+    const existing = photosByBathroom.get(photo.bathroom_id) ?? [];
+    existing.push({
+      id: photo.id,
+      storage_path: photo.storage_path,
+      alt: photo.alt,
+      moderation_status: photo.moderation_status,
+    });
+    photosByBathroom.set(photo.bathroom_id, existing);
+  }
+
+  return rows.map((row) => ({ ...row, photos: photosByBathroom.get(row.id) ?? row.photos }));
+}
+
+async function createBathroomPhotoUrl(storagePath: string): Promise<string> {
+  if (/^https?:\/\//i.test(storagePath)) return storagePath;
+  if (!supabase) return '';
+  const { data, error } = await supabase.storage
+    .from(BATHROOM_PHOTO_BUCKET)
+    .createSignedUrl(storagePath, 60 * 60 * 24);
+  if (error) return '';
+  return data.signedUrl;
 }
 
 function isUuid(value: string): boolean {

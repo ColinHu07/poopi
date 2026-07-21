@@ -7,6 +7,7 @@ import { ActivityIndicator, Linking, Platform, Pressable, StyleSheet, Text, Text
 
 import { AuthRequired } from '@/components/app/AuthRequired';
 import { BathroomCard } from '@/components/app/BathroomCard';
+import { BathroomPhotoUpload } from '@/components/app/BathroomPhotoUpload';
 import { RatingLabelPicker } from '@/components/app/RatingLabelPicker';
 import { LocationPinEditor } from '@/components/app/LocationPinEditor';
 import { Section, Screen } from '@/components/app/Screen';
@@ -863,13 +864,13 @@ export default function ModalScreen() {
         />
       </Section>
 
-      <View style={styles.safetyBox}>
-        <Text style={styles.safetyTitle}>Photo moderation</Text>
-        <Text style={styles.safetyCopy}>
-          Uploads are intended for empty rooms, fixtures, and signs. Images with people, kids, faces, or sensitive
-          reflections should be rejected or queued.
-        </Text>
-      </View>
+      <Section title="Add a photo">
+        <BathroomPhotoUpload
+          bathroomId={bathroom.id}
+          bathroomName={bathroom.name}
+          onUploaded={(photo) => setBathroom((current) => current ? { ...current, photos: [photo, ...current.photos] } : current)}
+        />
+      </Section>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 

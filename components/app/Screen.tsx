@@ -1,5 +1,5 @@
 import type { PropsWithChildren, ReactNode } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { palette } from './tokens';
 
@@ -15,6 +15,15 @@ export function Screen({ title, kicker, right, children }: ScreenProps) {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <View style={styles.headerText}>
+            <View style={styles.brandRow}>
+              <Image
+                accessibilityLabel="Poopi mascot"
+                source={require('../../assets/images/icon.png')}
+                style={styles.brandMascot}
+              />
+              <Text style={styles.brandName}>poopi</Text>
+              <Text style={styles.brandSparkle}>✦</Text>
+            </View>
             {kicker ? (
               <View style={styles.kickerRow}>
                 <View style={styles.kickerDot} />
@@ -68,6 +77,30 @@ const styles = StyleSheet.create({
   headerText: {
     flex: 1,
     minWidth: 220,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    marginBottom: 8,
+  },
+  brandMascot: {
+    width: 38,
+    height: 38,
+    borderRadius: 13,
+  },
+  brandName: {
+    color: palette.ink,
+    fontFamily: 'Georgia',
+    fontSize: 25,
+    lineHeight: 29,
+    fontWeight: '900',
+    letterSpacing: -1.2,
+  },
+  brandSparkle: {
+    color: palette.jade,
+    fontSize: 18,
+    fontWeight: '900',
   },
   kickerRow: {
     flexDirection: 'row',

@@ -2,7 +2,7 @@
 
 > This file is the source of truth for product and engineering work. Check off a task only after its acceptance criterion is met and the change is merged.
 
-**Last verified:** July 19, 2026<br>
+**Last verified:** July 21, 2026<br>
 **North star:** Make Poopi the fastest way to find a trustworthy nearby bathroom, then layer in Beli-style personal rankings and social discovery.
 
 ## How to use this roadmap
@@ -22,7 +22,7 @@
 - Foreground location permission, nearby markers, marker selection, map filters, and a New York fallback.
 - Supabase email/password and Google OAuth authentication, anonymous guest sessions, profile completion, PostGIS schema, and row-level security.
 - Persistent anonymous comparison identities, permanent-account contribution gates, and a privacy-safe public review API that excludes user IDs and private notes.
-- Five tabs: Map, Rank, Feed, Lists, and Profile, with account-only actions gated at the point of use.
+- Four destinations—Map, Rank, Lists, and Profile—plus a prominent center Rate action, with account-only actions gated at the point of use.
 - Trust-focused bathroom details with status, approximate distance/walking ETA, directions, access, condition summaries, confidence, sources, common labels, and anonymous public reviews.
 - Structured visit logging with sentiment, required cleanliness/smell/privacy ratings, wait, status, observed access, visibility, good/bad labels, public notes, and private notes.
 - Explicit OpenStreetMap venue/address search, automatic current-venue suggestions, editable place confirmation, a draggable web location pin, and manual missing-bathroom entry.
@@ -31,7 +31,9 @@
 - Personal Elo-style rankings plus weighted community Bradley-Terry aggregation from pairwise votes.
 - Canonical UUID persistence for Refuge, OpenStreetMap, and user-created candidates, with shared normalization, cross-source deduplication, and source provenance.
 - Responsive static web export and Sites packaging for phone-browser testing.
-- `npm run typecheck` passes and all 47 current automated tests pass.
+- Signed-in bathroom photo capture/library selection, client-side JPEG normalization, private storage, owner previews, and moderation-queued records.
+- A visible mascot-led brand system across screen headers, web map pins, and the photo flow.
+- `npm run typecheck` passes and all 59 current automated tests pass.
 
 ### Incomplete or misleading today
 
@@ -39,8 +41,7 @@
 - Follows and feed tables exist, but there is no friend discovery and visits do not produce a followed-friends feed.
 - Community comparison aggregation still needs a server-side cache for scale.
 - Free-form opening hours still need reliable parsing; until then, the app presents operating status as unknown unless a recent observation confirms it.
-- The main map still lacks destination search, “search this area,” clustering, and a synchronized map/list bottom sheet.
-- Photo tables and moderation copy exist, but there is no storage/upload workflow.
+- Photo uploads are connected, but moderator approval/report/removal tools are still incomplete.
 - Android still receives a list fallback instead of a functional map.
 
 ## Product principles
@@ -140,7 +141,7 @@ This is the complete launch set of 46 labels. The picker separates good and bad 
 - [ ] **P1 · SOCIAL-04 — Separate personal, friends, and community scores** — Owner: `@unassigned` · Depends on: SOCIAL-02, REVIEW-03 · Done when: detail and ranking screens label each score, provide sample/confidence context, and never substitute one audience’s score for another. PR: —
 - [ ] **P1 · SOCIAL-05 — Finish meaningful pairwise ranking** — Owner: `@unassigned` · Depends on: REVIEW-02 · Done when: pair selection avoids repeated questions, every identity has one mutable opinion per pair, the weighted community Bradley-Terry order updates deterministically, interpolated scores include confidence context, and personal ordering remains a separately labeled optional view. PR: —
 - [ ] **P1 · SOCIAL-06 — Expand profile history and editing** — Owner: `@unassigned` · Depends on: SOCIAL-04 · Done when: users can view/edit their visits, see favorite traits and contribution counts, and remove their content. PR: —
-- [ ] **P1 · SAFETY-01 — Implement moderated photo uploads** — Owner: `@unassigned` · Depends on: REVIEW-03, DATA-04 · Done when: empty-room/signage images attach to the resolved canonical bathroom, upload to private storage, strip EXIF, enter moderation, use resolvable URLs, and support reporting/removal; after approval, the first valid photo replaces the “No photos” placeholder without creating a duplicate location. PR: —
+- [ ] **P1 · SAFETY-01 — Implement moderated photo uploads** — Owner: `@codex` · Depends on: REVIEW-03, DATA-04 · Done when: empty-room/signage images attach to the resolved canonical bathroom, upload to private storage, strip EXIF, enter moderation, use resolvable URLs, and support reporting/removal; after approval, the first valid photo replaces the “No photos” placeholder without creating a duplicate location. Upload/storage foundation: [#19](https://github.com/ColinHu07/poopi/pull/19); moderator approval/report/removal UI remains.
 - [ ] **P1 · SAFETY-02 — Finish visit privacy controls** — Owner: `@unassigned` · Depends on: SOCIAL-02, REVIEW-03 · Done when: public, friends, and private visits behave consistently across details, feed, profile, exports, and deletion. PR: —
 
 ## P2 — Expansion
