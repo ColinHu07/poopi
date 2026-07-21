@@ -109,7 +109,7 @@ export function BathroomMap({
       const markerSize = isCluster ? 42 : selected ? 34 : 28;
       const icon = L.divIcon({
         className: '',
-        html: `<div style="display:flex;align-items:center;justify-content:center;width:${markerSize}px;height:${markerSize}px;border:3px solid #fff;border-radius:999px;background:${selected ? '#d95b43' : isCluster ? '#258477' : '#202124'};color:#fffaf6;font:900 ${isCluster ? 14 : 12}px system-ui;box-shadow:0 5px 16px rgba(32,33,36,.28);box-sizing:border-box">${isCluster ? cluster.bathrooms.length : '•'}</div>`,
+        html: `<div style="display:flex;align-items:center;justify-content:center;width:${markerSize}px;height:${markerSize}px;border:3px solid #fffaf2;border-radius:999px;background:${selected ? '#ee684f' : isCluster ? '#168c7b' : '#2b1d18'};color:#fffaf2;font:900 ${isCluster ? 14 : 12}px system-ui;box-shadow:0 5px 16px rgba(43,29,24,.25);box-sizing:border-box">${isCluster ? cluster.bathrooms.length : '•'}</div>`,
         iconAnchor: [markerSize / 2, markerSize / 2],
         iconSize: [markerSize, markerSize],
       });
@@ -160,9 +160,9 @@ export function BathroomMap({
         height: 'min(52vh, 520px)',
         minHeight: 360,
         overflow: 'hidden',
-        border: '1px solid #dedbd2',
-        borderRadius: 14,
-        background: '#ffffff',
+        border: '2px solid #dacbbb',
+        borderRadius: 22,
+        background: '#fffaf2',
       }}>
       <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
       {!mapReady ? (
@@ -172,9 +172,9 @@ export function BathroomMap({
             inset: 0,
             display: 'grid',
             placeItems: 'center',
-            color: '#687076',
+            color: '#75675f',
             font: '800 14px system-ui',
-            background: '#fffdf8',
+            background: '#fffaf2',
           }}>
           Loading map…
         </div>

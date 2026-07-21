@@ -1,19 +1,25 @@
 export const palette = {
-  ink: '#202124',
-  muted: '#687076',
-  paper: '#f8f7f2',
-  surface: '#ffffff',
-  line: '#dedbd2',
-  jade: '#2f8f83',
-  mint: '#dff4ed',
-  coral: '#d95b43',
-  coralSoft: '#ffe4dc',
-  gold: '#c18b24',
-  goldSoft: '#fff0c9',
-  plum: '#6d5bd0',
-  plumSoft: '#ece7ff',
-  sky: '#2d7dd2',
-  skySoft: '#e3f0ff',
+  ink: '#2b1d18',
+  muted: '#75675f',
+  paper: '#f7f0e4',
+  surface: '#fffaf2',
+  surfaceStrong: '#ffffff',
+  line: '#dacbbb',
+  jade: '#168c7b',
+  jadeDark: '#0d6258',
+  mint: '#dcf3e9',
+  coral: '#ee684f',
+  coralDark: '#b94433',
+  coralSoft: '#ffe0d7',
+  gold: '#a46d08',
+  goldSoft: '#f8df91',
+  butter: '#f3c95b',
+  cocoa: '#9a5d3b',
+  cocoaSoft: '#ead2bd',
+  plum: '#72546f',
+  plumSoft: '#eee1eb',
+  sky: '#267e93',
+  skySoft: '#dceff1',
 };
 
 export const spacing = {
@@ -25,5 +31,16 @@ export const spacing = {
 };
 
 export const shadow = {
-  elevation: 4,
+  elevation: 3,
+  shadowColor: '#2b1d18',
+  shadowOpacity: 0.12,
+  shadowRadius: 10,
+  shadowOffset: { width: 0, height: 5 },
+};
+
+export const radii = {
+  sm: 10,
+  md: 16,
+  lg: 22,
+  pill: 999,
 };

@@ -31,43 +31,46 @@ export default function WelcomeScreen() {
 
   return (
     <View style={styles.screen}>
-      <Image accessibilityLabel="Poopi mascot" source={require('../../assets/images/icon.png')} style={styles.brandMark} />
-      <Text style={styles.logo}>poopi</Text>
-      <Text style={styles.title}>Find the bathroom that will not betray you.</Text>
-      <Text style={styles.copy}>
-        Rank bathrooms, save access notes, and see real nearby restroom reports before you need them.
-      </Text>
-
-      <GoogleAuthButton
-        disabled={!configured}
-        loading={googleSubmitting}
-        onPress={submitGoogle}
-      />
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-
-      <View style={styles.actions}>
-        {configured ? (
-          <>
-          <Link href={'/sign-up' as any} asChild>
-            <Pressable style={styles.primaryButton}>
-              <Text style={styles.primaryText}>Create account</Text>
-            </Pressable>
-          </Link>
-          <Link href={'/sign-in' as any} asChild>
-            <Pressable style={styles.secondaryButton}>
-              <Text style={styles.secondaryText}>Log in</Text>
-            </Pressable>
-          </Link>
-          </>
-        ) : (
-          <View style={styles.setupCard}>
-            <Text style={styles.setupTitle}>Account setup is unavailable</Text>
-            <Text style={styles.setupCopy}>Bathroom discovery still works without an account.</Text>
+      <View style={styles.heroCard}>
+        <View style={styles.brandRow}>
+          <Image accessibilityLabel="Poopi mascot" source={require('../../assets/images/icon.png')} style={styles.brandMark} />
+          <View>
+            <Text style={styles.logo}>poopi</Text>
+            <Text style={styles.tagline}>the bathroom bestie</Text>
           </View>
-        )}
-        <Pressable style={styles.guestButton} onPress={() => router.replace('/(tabs)')}>
-          <Text style={styles.guestText}>Browse as guest</Text>
-        </Pressable>
+        </View>
+        <Text style={styles.title}>Never get caught without a good bathroom.</Text>
+        <Text style={styles.copy}>
+          Find honest nearby reviews, remember the good ones, and help everybody go with confidence.
+        </Text>
+
+        <GoogleAuthButton disabled={!configured} loading={googleSubmitting} onPress={submitGoogle} />
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+
+        <View style={styles.actions}>
+          {configured ? (
+            <>
+              <Link href={'/sign-up' as any} asChild>
+                <Pressable style={styles.primaryButton}>
+                  <Text style={styles.primaryText}>Create account</Text>
+                </Pressable>
+              </Link>
+              <Link href={'/sign-in' as any} asChild>
+                <Pressable style={styles.secondaryButton}>
+                  <Text style={styles.secondaryText}>Log in</Text>
+                </Pressable>
+              </Link>
+            </>
+          ) : (
+            <View style={styles.setupCard}>
+              <Text style={styles.setupTitle}>Account setup is unavailable</Text>
+              <Text style={styles.setupCopy}>Bathroom discovery still works without an account.</Text>
+            </View>
+          )}
+          <Pressable style={styles.guestButton} onPress={() => router.replace('/(tabs)')}>
+            <Text style={styles.guestText}>Browse as guest →</Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -77,29 +80,51 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     justifyContent: 'center',
-    gap: 18,
-    padding: 26,
+    alignItems: 'center',
+    padding: 20,
     backgroundColor: palette.paper,
   },
+  heroCard: {
+    width: '100%',
+    maxWidth: 560,
+    borderRadius: 28,
+    borderWidth: 2,
+    borderColor: palette.cocoaSoft,
+    backgroundColor: palette.surface,
+    padding: 24,
+    gap: 18,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+  },
   brandMark: {
-    width: 96,
-    height: 96,
-    borderRadius: 22,
+    width: 76,
+    height: 76,
+    borderRadius: 24,
   },
   logo: {
     color: palette.jade,
-    fontSize: 38,
-    lineHeight: 42,
-    fontWeight: '700',
+    fontSize: 36,
+    lineHeight: 38,
+    fontWeight: '900',
     fontFamily: 'Georgia',
     letterSpacing: -2,
   },
+  tagline: {
+    color: palette.coral,
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
   title: {
     color: palette.ink,
-    fontSize: 40,
-    lineHeight: 44,
+    fontSize: 38,
+    lineHeight: 41,
     fontWeight: '900',
-    letterSpacing: 0,
+    letterSpacing: -1.2,
   },
   copy: {
     color: palette.muted,
@@ -117,9 +142,9 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   primaryButton: {
-    minHeight: 54,
-    borderRadius: 8,
-    backgroundColor: palette.ink,
+    minHeight: 56,
+    borderRadius: 18,
+    backgroundColor: palette.coral,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -130,8 +155,8 @@ const styles = StyleSheet.create({
   },
   secondaryButton: {
     minHeight: 54,
-    borderRadius: 8,
-    borderWidth: 1,
+    borderRadius: 18,
+    borderWidth: 1.5,
     borderColor: palette.line,
     backgroundColor: palette.surface,
     alignItems: 'center',
@@ -153,8 +178,8 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   setupCard: {
-    borderRadius: 8,
-    borderWidth: 1,
+    borderRadius: 18,
+    borderWidth: 1.5,
     borderColor: palette.line,
     backgroundColor: palette.surface,
     padding: 14,

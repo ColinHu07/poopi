@@ -220,7 +220,7 @@ function LabelSection({
   const selectedCount = labels.filter((definition) => selected.includes(definition.id)).length;
 
   return (
-    <View style={styles.section}>
+    <View style={[styles.section, tone === 'positive' ? styles.positiveSection : styles.negativeSection]}>
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded }}
@@ -266,7 +266,11 @@ function LabelRow({
       accessibilityRole="checkbox"
       accessibilityState={{ checked: selected }}
       onPress={onPress}
-      style={({ pressed }) => [styles.labelRow, pressed && styles.pressed]}>
+      style={({ pressed }) => [
+        styles.labelRow,
+        selected && (definition.tone === 'positive' ? styles.positiveSelectedRow : styles.negativeSelectedRow),
+        pressed && styles.pressed,
+      ]}>
       <Text style={styles.labelRowText}>{definition.label}</Text>
       <View
         style={[
@@ -283,12 +287,12 @@ function LabelRow({
 const styles = StyleSheet.create({
   lockedPanel: {
     minHeight: 92,
-    borderRadius: 10,
-    borderWidth: 1,
+    borderRadius: 18,
+    borderWidth: 1.5,
     borderStyle: 'dashed',
     borderColor: palette.line,
-    backgroundColor: palette.paper,
-    padding: 14,
+    backgroundColor: palette.goldSoft,
+    padding: 16,
     justifyContent: 'center',
     gap: 5,
   },
@@ -304,15 +308,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   editorRow: {
-    minHeight: 62,
-    borderRadius: 10,
-    borderWidth: 1,
+    minHeight: 68,
+    borderRadius: 18,
+    borderWidth: 1.5,
     borderColor: palette.line,
     backgroundColor: palette.surface,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
   },
   fallbackIcon: {
     color: palette.muted,
@@ -344,9 +348,9 @@ const styles = StyleSheet.create({
     paddingRight: 12,
   },
   selectedPill: {
-    minHeight: 30,
-    borderRadius: 15,
-    borderWidth: 1,
+    minHeight: 34,
+    borderRadius: 17,
+    borderWidth: 1.5,
     paddingHorizontal: 11,
     alignItems: 'center',
     justifyContent: 'center',
@@ -371,12 +375,13 @@ const styles = StyleSheet.create({
   },
   modalSafeArea: {
     flex: 1,
-    backgroundColor: palette.surface,
+    backgroundColor: palette.paper,
   },
   modalHeader: {
-    minHeight: 54,
-    borderBottomWidth: 1,
-    borderBottomColor: palette.line,
+    minHeight: 62,
+    borderBottomWidth: 2,
+    borderBottomColor: palette.cocoaSoft,
+    backgroundColor: palette.surface,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -386,7 +391,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     flex: 1,
     color: palette.ink,
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '900',
     textAlign: 'center',
   },
@@ -397,11 +402,13 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   searchWrap: {
-    minHeight: 42,
-    marginHorizontal: 14,
-    marginVertical: 10,
-    borderRadius: 9,
-    backgroundColor: palette.paper,
+    minHeight: 48,
+    marginHorizontal: 16,
+    marginVertical: 14,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: palette.line,
+    backgroundColor: palette.surface,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 11,
@@ -418,14 +425,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   labelList: {
-    paddingBottom: 28,
+    paddingHorizontal: 14,
+    paddingBottom: 32,
+    gap: 14,
   },
   section: {
-    borderTopWidth: 1,
-    borderTopColor: palette.line,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: palette.line,
+    overflow: 'hidden',
+  },
+  positiveSection: {
+    backgroundColor: '#f2fbf7',
+  },
+  negativeSection: {
+    backgroundColor: '#fff5f1',
   },
   sectionHeader: {
-    minHeight: 48,
+    minHeight: 54,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -463,7 +480,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   labelRow: {
-    minHeight: 52,
+    minHeight: 54,
     borderTopWidth: 1,
     borderTopColor: palette.line,
     flexDirection: 'row',
@@ -471,6 +488,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 18,
     gap: 12,
+  },
+  positiveSelectedRow: {
+    backgroundColor: palette.mint,
+  },
+  negativeSelectedRow: {
+    backgroundColor: palette.coralSoft,
   },
   labelRowText: {
     flex: 1,

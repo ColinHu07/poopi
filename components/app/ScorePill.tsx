@@ -20,13 +20,13 @@ export function ScorePill({ label, value, muted }: ScorePillProps) {
 const styles = StyleSheet.create({
   container: {
     minWidth: 70,
-    borderRadius: 8,
-    backgroundColor: palette.ink,
+    borderRadius: 16,
+    backgroundColor: palette.jadeDark,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   muted: {
-    backgroundColor: palette.plum,
+    backgroundColor: palette.cocoa,
   },
   value: {
     color: palette.surface,

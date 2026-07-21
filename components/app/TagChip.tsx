@@ -48,35 +48,35 @@ export function TagChip({ label, tone = 'neutral' }: TagChipProps) {
 
 const styles = StyleSheet.create({
   chip: {
-    minHeight: 30,
-    borderRadius: 8,
-    borderWidth: 1,
-    paddingHorizontal: 10,
+    minHeight: 32,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    paddingHorizontal: 11,
     paddingVertical: 6,
     justifyContent: 'center',
   },
   label: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '800',
   },
 });
 
 const toneStyles = StyleSheet.create({
   neutral: {
     backgroundColor: palette.surface,
-    borderColor: palette.line,
+    borderColor: palette.cocoaSoft,
   },
   good: {
     backgroundColor: palette.mint,
-    borderColor: '#b6dfd4',
+    borderColor: '#8fcfc0',
   },
   warn: {
     backgroundColor: palette.goldSoft,
-    borderColor: '#efd28b',
+    borderColor: palette.butter,
   },
   info: {
     backgroundColor: palette.skySoft,
-    borderColor: '#b7d7f5',
+    borderColor: '#9dcdd3',
   },
 });
 

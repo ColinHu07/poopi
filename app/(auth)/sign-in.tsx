@@ -92,12 +92,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     gap: 14,
-    padding: 24,
+    padding: 28,
     backgroundColor: palette.paper,
   },
   title: {
     color: palette.ink,
-    fontSize: 36,
+    fontSize: 40,
     fontWeight: '900',
   },
   copy: {
@@ -133,8 +133,8 @@ const styles = StyleSheet.create({
   },
   input: {
     minHeight: 50,
-    borderRadius: 8,
-    borderWidth: 1,
+    borderRadius: 16,
+    borderWidth: 1.5,
     borderColor: palette.line,
     backgroundColor: palette.surface,
     color: palette.ink,
@@ -147,9 +147,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   primaryButton: {
-    minHeight: 52,
-    borderRadius: 8,
-    backgroundColor: palette.ink,
+    minHeight: 56,
+    borderRadius: 18,
+    backgroundColor: palette.coral,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 4,
