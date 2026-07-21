@@ -1,7 +1,8 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { BathroomPhoto } from '@/components/app/BathroomPhoto';
 import { ScorePill } from '@/components/app/ScorePill';
 import { Screen } from '@/components/app/Screen';
 import { TagChip } from '@/components/app/TagChip';
@@ -10,7 +11,11 @@ import { getComparisonCandidates, recordComparison, type RankedBathroom } from '
 import { useAuth } from '@/src/providers/AuthProvider';
 
 export default function RankScreen() {
-  const { focusBathroomId, fromReview } = useLocalSearchParams<{ focusBathroomId?: string; fromReview?: string }>();
+  const { comparisonDone, focusBathroomId, fromReview } = useLocalSearchParams<{
+    comparisonDone?: string;
+    focusBathroomId?: string;
+    fromReview?: string;
+  }>();
   const { isAnonymous, session } = useAuth();
   const [ranked, setRanked] = useState<RankedBathroom[]>([]);
   const [left, setLeft] = useState<RankedBathroom>();
@@ -19,10 +24,15 @@ export default function RankScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [comparisonComplete, setComparisonComplete] = useState(comparisonDone === '1');
 
   useEffect(() => {
     loadRanked();
   }, [focusBathroomId]);
+
+  useEffect(() => {
+    setComparisonComplete(comparisonDone === '1');
+  }, [comparisonDone, focusBathroomId]);
 
   async function loadRanked() {
     setLoading(true);
@@ -45,11 +55,15 @@ export default function RankScreen() {
     setError('');
     try {
       await recordComparison(winnerId, loserId);
-      if (fromReview === '1' && focusBathroomId) {
-        router.replace({
-          pathname: '/bathroom/[id]',
-          params: { id: focusBathroomId, reviewed: '1', compared: '1' },
-        });
+      const insertionId = focusBathroomId ?? (!isAnonymous && left?.rating.comparisons === 0 ? left.bathroom.id : undefined);
+      if (insertionId) {
+        const next = await getComparisonCandidates(insertionId);
+        setRanked(next.ranked);
+        setLeft(undefined);
+        setRight(undefined);
+        setQualityGap(undefined);
+        setComparisonComplete(true);
+        router.setParams({ comparisonDone: '1', focusBathroomId: insertionId, fromReview: '1' });
         return;
       }
       await loadRanked();
@@ -60,11 +74,15 @@ export default function RankScreen() {
     }
   }
 
+  const insertionBathroomId = focusBathroomId ?? (!isAnonymous && left?.rating.comparisons === 0 ? left.bathroom.id : undefined);
+  const compareFirst = Boolean(insertionBathroomId) && !comparisonComplete;
+  const showRankings = !compareFirst;
+
   return (
     <Screen
-      kicker={fromReview === '1' ? 'Review saved' : session && !isAnonymous ? 'Personal score' : 'Guest comparison'}
-      title={fromReview === '1' ? 'One quick comparison' : session && !isAnonymous ? 'Your rankings' : 'Compare bathrooms'}
-      right={<ScorePill label="top" value={ranked[0]?.score} />}>
+      kicker={comparisonComplete ? 'Ranking updated' : compareFirst ? 'Review saved' : session && !isAnonymous ? 'Personal score' : 'Guest comparison'}
+      title={comparisonComplete ? 'Your new scores' : compareFirst ? 'Place your new bathroom' : session && !isAnonymous ? 'Your rankings' : 'Compare bathrooms'}
+      right={showRankings ? <ScorePill label="top" value={ranked[0]?.score} /> : undefined}>
       {error ? (
         <View style={styles.errorBox}>
           <Text style={styles.errorText}>{error}</Text>
@@ -86,6 +104,73 @@ export default function RankScreen() {
           <Text style={styles.emptyTitle}>No rankings yet</Text>
           <Text style={styles.emptyText}>No persisted bathrooms are available for comparison yet.</Text>
         </View>
+      ) : compareFirst && left && right ? (
+        <View style={styles.compareCard}>
+          <View style={styles.compareHeader}>
+            <View style={styles.compareHeadingCopy}>
+              <Text style={styles.compareTitle}>Was {left.bathroom.name} better?</Text>
+              <Text style={styles.compareCopy}>
+                Pick the bathroom you liked more. {left.bathroom.name} stays unranked until you answer.
+              </Text>
+            </View>
+            <TagChip label={saving ? 'Saving' : 'Smart match'} tone="info" />
+          </View>
+          <View style={styles.pairRow}>
+            <Choice
+              disabled={saving}
+              item={left}
+              newBathroom
+              onPress={() => choose(left.bathroom.id, right.bathroom.id)}
+            />
+            <Text style={styles.versus}>VS</Text>
+            <Choice disabled={saving} item={right} onPress={() => choose(right.bathroom.id, left.bathroom.id)} />
+          </View>
+          {insertionBathroomId ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() =>
+                router.replace({ pathname: '/bathroom/[id]', params: { id: insertionBathroomId, reviewed: '1' } })
+              }
+              style={styles.skipButton}>
+              <Text style={styles.skipButtonText}>Skip for now</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : compareFirst ? (
+        <View style={styles.empty}>
+          <Text style={styles.emptyTitle}>{ranked.length === 1 ? 'One visit logged' : 'You’re caught up'}</Text>
+          <Text style={styles.emptyText}>
+            {ranked.length === 1
+              ? 'Log one more bathroom to unlock this-or-that comparisons.'
+              : 'You have answered every useful comparison for this bathroom. Your personal scores are up to date.'}
+          </Text>
+          {insertionBathroomId ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() =>
+                router.replace({ pathname: '/bathroom/[id]', params: { id: insertionBathroomId, reviewed: '1' } })
+              }
+              style={styles.viewBathroomButton}>
+              <Text style={styles.viewBathroomButtonText}>View bathroom</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : comparisonComplete ? (
+        <View style={styles.updatedBox}>
+          <Text style={styles.updatedEyebrow}>COMPARISON SAVED</Text>
+          <Text style={styles.updatedTitle}>Your full ranking is refreshed.</Text>
+          <Text style={styles.updatedCopy}>The winner moved above the bathroom you compared it with, and every score below uses the updated order.</Text>
+          {focusBathroomId ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() =>
+                router.replace({ pathname: '/bathroom/[id]', params: { id: focusBathroomId, reviewed: '1', compared: '1' } })
+              }
+              style={styles.viewBathroomButton}>
+              <Text style={styles.viewBathroomButtonText}>View the bathroom</Text>
+            </Pressable>
+          ) : null}
+        </View>
       ) : left && right ? (
         <View style={styles.compareCard}>
           <View style={styles.compareHeader}>
@@ -93,8 +178,8 @@ export default function RankScreen() {
               <Text style={styles.compareTitle}>Which bathroom was better?</Text>
               <Text style={styles.compareCopy}>
                 {qualityGap !== undefined && qualityGap <= 1
-                  ? 'We picked a recent bathroom with a similar review so this choice can place your new score accurately.'
-                  : 'We picked the closest unanswered match from your recent ratings.'}
+                  ? 'These two have similar review scores, so your answer is especially useful.'
+                  : 'This is the closest unanswered match in your ranking.'}
               </Text>
             </View>
             <TagChip label={saving ? 'Saving' : 'Smart match'} tone="info" />
@@ -104,16 +189,6 @@ export default function RankScreen() {
             <Text style={styles.versus}>VS</Text>
             <Choice disabled={saving} item={right} onPress={() => choose(right.bathroom.id, left.bathroom.id)} />
           </View>
-          {fromReview === '1' && focusBathroomId ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() =>
-                router.replace({ pathname: '/bathroom/[id]', params: { id: focusBathroomId, reviewed: '1' } })
-              }
-              style={styles.skipButton}>
-              <Text style={styles.skipButtonText}>Skip for now</Text>
-            </Pressable>
-          ) : null}
         </View>
       ) : (
         <View style={styles.empty}>
@@ -121,26 +196,16 @@ export default function RankScreen() {
           <Text style={styles.emptyText}>
             {ranked.length === 1
               ? 'Log one more bathroom to unlock this-or-that comparisons.'
-              : 'You have answered every useful comparison for this bathroom. Your personal scores are up to date.'}
+              : 'You have answered every useful comparison. Your personal scores are up to date.'}
           </Text>
-          {fromReview === '1' && focusBathroomId ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() =>
-                router.replace({ pathname: '/bathroom/[id]', params: { id: focusBathroomId, reviewed: '1' } })
-              }
-              style={styles.viewBathroomButton}>
-              <Text style={styles.viewBathroomButtonText}>View bathroom</Text>
-            </Pressable>
-          ) : null}
         </View>
       )}
 
-      <View style={styles.list}>
+      {showRankings ? <View style={styles.list}>
         {ranked.map(({ bathroom, rank, score, rating }) => (
           <View key={bathroom.id} style={styles.rankRow}>
             <Text style={styles.rankNumber}>{rank}</Text>
-            <Image source={{ uri: bathroom.photos[0]?.url }} style={styles.thumb} />
+            <BathroomPhoto compact fallbackLabel={bathroom.name} photo={bathroom.photos[0]} style={styles.thumb} />
             <View style={styles.rankBody}>
               <Text style={styles.rankName} numberOfLines={1}>
                 {bathroom.name}
@@ -154,31 +219,42 @@ export default function RankScreen() {
             <ScorePill label="you" value={score} muted={rank > 3} />
           </View>
         ))}
-      </View>
+      </View> : null}
     </Screen>
   );
 }
 
-function Choice({ disabled, item, onPress }: { disabled: boolean; item: RankedBathroom; onPress: () => void }) {
+function Choice({
+  disabled,
+  item,
+  newBathroom = false,
+  onPress,
+}: {
+  disabled: boolean;
+  item: RankedBathroom;
+  newBathroom?: boolean;
+  onPress: () => void;
+}) {
   const { bathroom } = item;
-  const dimensions = [
-    item.cleanlinessRating ? `Clean ${item.cleanlinessRating}` : null,
-    item.odorRating ? `Smell ${item.odorRating}` : null,
-    item.privacyRating ? `Privacy ${item.privacyRating}` : null,
-  ].filter(Boolean);
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${bathroom.name}, personal quality ${item.qualityScore} out of 10`}
+      accessibilityLabel={
+        newBathroom
+          ? `${bathroom.name}, unranked new bathroom. Choose as better bathroom.`
+          : `${bathroom.name}, personal score ${item.score} out of 10. Choose as better bathroom.`
+      }
       accessibilityState={{ disabled }}
       disabled={disabled}
       style={({ pressed }) => [styles.choice, disabled && styles.disabledChoice, pressed && styles.pressed]}
       onPress={onPress}>
-      <Image source={{ uri: bathroom.photos[0]?.url }} style={styles.choiceImage} />
+      <BathroomPhoto compact fallbackLabel={bathroom.name} photo={bathroom.photos[0]} style={styles.choiceImage} />
       <View style={styles.choiceBody}>
         <Text style={styles.choiceName} numberOfLines={2}>{bathroom.name}</Text>
-        <Text style={styles.choiceQuality}>{item.qualityScore.toFixed(1)} from your review</Text>
-        {dimensions.length ? <Text style={styles.choiceDimensions}>{dimensions.join(' · ')}</Text> : null}
+        <Text style={[styles.choiceQuality, newBathroom && styles.unrankedText]}>
+          {newBathroom ? 'Unranked' : `${item.score.toFixed(1)} personal score`}
+        </Text>
+        <Text style={styles.choiceAction}>{bathroom.name} was better</Text>
       </View>
     </Pressable>
   );
@@ -242,7 +318,8 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   choiceQuality: { color: palette.jade, fontSize: 12, fontWeight: '900' },
-  choiceDimensions: { color: palette.muted, fontSize: 10, lineHeight: 14, fontWeight: '700' },
+  unrankedText: { color: palette.coral },
+  choiceAction: { color: palette.ink, fontSize: 10, lineHeight: 14, fontWeight: '800', marginTop: 2 },
   versus: {
     color: palette.coral,
     fontSize: 14,
@@ -258,6 +335,17 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   viewBathroomButtonText: { color: palette.surface, fontSize: 13, fontWeight: '900' },
+  updatedBox: {
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: '#8fcfc0',
+    backgroundColor: palette.mint,
+    padding: 17,
+    gap: 6,
+  },
+  updatedEyebrow: { color: palette.jade, fontSize: 11, fontWeight: '900', letterSpacing: 1.1 },
+  updatedTitle: { color: palette.ink, fontSize: 20, fontWeight: '900' },
+  updatedCopy: { color: palette.ink, fontSize: 13, lineHeight: 19, fontWeight: '700' },
   list: {
     gap: 10,
   },
