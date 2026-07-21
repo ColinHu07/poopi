@@ -449,7 +449,6 @@ export default function MapScreen() {
         </View>
 
         <View style={[styles.resultSheet, wideLayout && styles.resultSheetWide]}>
-          {!wideLayout ? <View style={styles.sheetHandle} /> : null}
           <View style={styles.resultsHeader}>
             <View>
               <Text style={styles.sectionLabel}>{selected ? 'Selected bathroom' : 'Bathrooms nearby'}</Text>
@@ -561,21 +560,20 @@ const styles = StyleSheet.create({
   locationText: { color: palette.muted, fontSize: 12, lineHeight: 17, fontWeight: '700' },
   locationButton: { minHeight: 42, borderRadius: 9, backgroundColor: palette.ink, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
   locationButtonText: { color: palette.surface, fontSize: 13, fontWeight: '900' },
-  discoveryLayout: { gap: 0 },
+  discoveryLayout: { gap: 12 },
   discoveryLayoutWide: { flexDirection: 'row', alignItems: 'flex-start', gap: 18 },
   mapColumn: { gap: 12 },
   mapColumnWide: { flex: 1.25 },
   mapSurface: { position: 'relative', borderRadius: 22, overflow: 'hidden' },
-  mapActions: { position: 'absolute', top: 12, left: 12, right: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  mapActions: { position: 'absolute', top: 12, left: 72, right: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   searchAreaButton: { minHeight: 44, borderRadius: 999, backgroundColor: palette.ink, paddingHorizontal: 17, alignItems: 'center', justifyContent: 'center', ...shadow },
   searchAreaText: { color: palette.surface, fontSize: 13, fontWeight: '900' },
   recenterButton: { marginLeft: 'auto', width: 46, height: 46, borderRadius: 23, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, alignItems: 'center', justifyContent: 'center', ...shadow },
   recenterText: { color: palette.jade, fontSize: 25, lineHeight: 27, fontWeight: '900' },
   statusPanel: { minHeight: 70, borderRadius: 10, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   statusText: { color: palette.muted, fontSize: 13, fontWeight: '800' },
-  resultSheet: { zIndex: 2, marginTop: -26, borderTopLeftRadius: 28, borderTopRightRadius: 28, borderWidth: 1.5, borderColor: palette.cocoaSoft, backgroundColor: palette.paper, padding: 17, gap: 15, ...shadow },
+  resultSheet: { zIndex: 2, marginTop: 0, borderRadius: 22, borderWidth: 1.5, borderColor: palette.cocoaSoft, backgroundColor: palette.paper, padding: 17, gap: 15, ...shadow },
   resultSheetWide: { flex: 0.75, marginTop: 0, borderRadius: 22 },
-  sheetHandle: { width: 44, height: 5, borderRadius: 99, backgroundColor: palette.line, alignSelf: 'center', marginBottom: 2 },
   resultsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   resultsHint: { color: palette.muted, fontSize: 12, fontWeight: '700', marginTop: 2 },
   sectionLabel: { color: palette.ink, fontSize: 20, fontWeight: '900' },

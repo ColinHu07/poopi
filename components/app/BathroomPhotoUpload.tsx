@@ -116,12 +116,14 @@ export function BathroomPhotoUpload({
 
   return (
     <View style={styles.card}>
-      <Image
-        accessibilityLabel="Poopi mascot holding a camera beside a bathroom door"
-        resizeMode="cover"
-        source={require('../../assets/images/photo-upload-hero-v1.png')}
-        style={styles.hero}
-      />
+      <View style={styles.heroFrame}>
+        <Image
+          accessibilityLabel="Poopi mascot holding a camera beside a bathroom door"
+          resizeMode="contain"
+          source={require('../../assets/images/photo-upload-hero-v1.png')}
+          style={styles.heroImage}
+        />
+      </View>
       <View style={styles.headingRow}>
         <View style={styles.headingCopy}>
           <Text style={styles.title}>Show people what it’s really like</Text>
@@ -217,11 +219,20 @@ const styles = StyleSheet.create({
     padding: 15,
     gap: 12,
   },
-  hero: {
+  heroFrame: {
     width: '100%',
+    maxWidth: 450,
+    minHeight: 180,
+    maxHeight: 300,
     aspectRatio: 3 / 2,
+    alignSelf: 'center',
     borderRadius: 18,
-    backgroundColor: palette.mint,
+    backgroundColor: '#fff4df',
+    overflow: 'hidden',
+  },
+  heroImage: {
+    width: '100%',
+    height: '100%',
   },
   headingRow: { flexDirection: 'row', alignItems: 'center', gap: 11 },
   headingCopy: { flex: 1, gap: 2 },
