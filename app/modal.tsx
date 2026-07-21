@@ -34,6 +34,7 @@ import {
   searchPlaces,
 } from '@/src/services/placeSearch';
 import { STATUS_LABELS, WAIT_LABELS } from '@/src/lib/bathroomSummary';
+import { errorMessage } from '@/src/lib/errors';
 
 const SENTIMENTS: Array<{ id: Sentiment; label: string }> = [
   { id: 'liked', label: 'Liked' },
@@ -275,7 +276,7 @@ export default function ModalScreen() {
       setDraft(undefined);
       router.setParams({ bathroomId: resolved.id });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to add this bathroom.');
+      setError(errorMessage(err, 'Unable to add this bathroom.'));
     } finally {
       setCreating(false);
     }
@@ -312,7 +313,7 @@ export default function ModalScreen() {
       });
       router.replace({ pathname: '/bathroom/[id]', params: { id: bathroom.id, reviewed: '1' } });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to save visit.');
+      setError(errorMessage(err, 'Unable to save visit.'));
     } finally {
       setSaving(false);
     }

@@ -438,6 +438,13 @@ export async function createBathroomCandidate(
   input: Pick<Bathroom, 'name' | 'address' | 'latitude' | 'longitude' | 'access'>,
 ) {
   const client = requireSupabase();
+  const { data: refreshed, error: refreshError } = await client.auth.refreshSession();
+  if (refreshError || !refreshed.session) {
+    throw new Error('Your sign-in session expired. Log in again, then retry adding this bathroom.');
+  }
+  if (refreshed.session.user.is_anonymous) {
+    throw new Error('This browser is still using a guest session. Log out, then sign in with Google or email before adding a bathroom.');
+  }
   await requirePermanentUser('add a bathroom');
   const { data, error } = await client.rpc('upsert_canonical_bathroom', {
     p_source_name: 'user',
