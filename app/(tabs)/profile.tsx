@@ -1,3 +1,4 @@
+import { SymbolView } from 'expo-symbols';
 import { Link, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -9,13 +10,23 @@ import { FEATURE_LABELS, TagChip } from '@/components/app/TagChip';
 import { palette } from '@/components/app/tokens';
 import type { Bathroom, FeatureTag, Visit } from '@/src/data/types';
 import { useAuth } from '@/src/providers/AuthProvider';
-import { getOwnVisitHistory, getProfileSummary, type ProfileSummary } from '@/src/services/bathroomApi';
+import {
+  deleteVisitObservation,
+  getOwnSubmittedBathrooms,
+  getOwnVisitHistory,
+  getProfileSummary,
+  type ProfileSummary,
+} from '@/src/services/bathroomApi';
 import { formatReviewAge, SENTIMENT_LABELS } from '@/src/lib/reviewPresentation';
 
 export default function ProfileScreen() {
   const { isAnonymous, session, signOut } = useAuth();
   const [profile, setProfile] = useState<ProfileSummary | null>(null);
   const [history, setHistory] = useState<Array<{ visit: Visit; bathroom: Bathroom }>>([]);
+  const [submittedBathrooms, setSubmittedBathrooms] = useState<Bathroom[]>([]);
+  const [deleteTarget, setDeleteTarget] = useState<{ visit: Visit; bathroom: Bathroom }>();
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -28,8 +39,10 @@ export default function ProfileScreen() {
     useCallback(() => {
       if (!session || isAnonymous) return;
       let cancelled = false;
-      getOwnVisitHistory().then((items) => {
-        if (!cancelled) setHistory(items);
+      Promise.all([getOwnVisitHistory(), getOwnSubmittedBathrooms()]).then(([items, submitted]) => {
+        if (cancelled) return;
+        setHistory(items);
+        setSubmittedBathrooms(submitted);
       });
       return () => {
         cancelled = true;
@@ -38,6 +51,29 @@ export default function ProfileScreen() {
   );
 
   const topTags = [...new Set(profile?.favoriteTags ?? [])].slice(0, 6) as FeatureTag[];
+  const reviewedBathroomIds = new Set(history.map(({ bathroom }) => bathroom.id));
+  const unfinishedBathrooms = submittedBathrooms.filter((bathroom) => !reviewedBathroomIds.has(bathroom.id));
+
+  async function deleteRating() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      await deleteVisitObservation(deleteTarget.visit.id, deleteTarget.bathroom.id);
+      setHistory((items) => items.filter(({ visit }) => visit.id !== deleteTarget.visit.id));
+      setSubmittedBathrooms((items) =>
+        items.some((bathroom) => bathroom.id === deleteTarget.bathroom.id)
+          ? items
+          : [deleteTarget.bathroom, ...items],
+      );
+      setProfile(await getProfileSummary());
+      setDeleteTarget(undefined);
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : 'Unable to delete this rating.');
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   if (!session || isAnonymous) {
     return (
@@ -69,31 +105,47 @@ export default function ProfileScreen() {
             {history.length ? (
               <View style={styles.historyStack}>
                 {history.map(({ visit, bathroom }) => (
-                  <Link
-                    key={visit.id}
-                    href={{ pathname: '/modal', params: { bathroomId: bathroom.id } }}
-                    asChild>
-                    <Pressable accessibilityRole="link" style={styles.historyCard}>
-                      <BathroomPhoto
-                        compact
-                        fallbackLabel={bathroom.name}
-                        photo={bathroom.photos[0]}
-                        style={styles.historyPhoto}
+                  <View key={visit.id} style={styles.historyCard}>
+                    <Link
+                      href={{ pathname: '/modal', params: { bathroomId: bathroom.id } }}
+                      asChild>
+                      <Pressable accessibilityRole="link" style={styles.historyLink}>
+                        <BathroomPhoto
+                          compact
+                          fallbackLabel={bathroom.name}
+                          photo={bathroom.photos[0]}
+                          style={styles.historyPhoto}
+                        />
+                        <View style={styles.historyBody}>
+                          <Text style={styles.historyName} numberOfLines={1}>{bathroom.name}</Text>
+                          <Text style={styles.historyMeta}>
+                            {SENTIMENT_LABELS[visit.sentiment]} · {formatReviewAge(visit.observedAt)}
+                          </Text>
+                          <Text style={styles.historyLabels} numberOfLines={1}>
+                            {visit.ratingTags.length
+                              ? `${visit.ratingTags.length} labels saved · tap to edit`
+                              : 'No labels yet · tap to edit'}
+                          </Text>
+                        </View>
+                      </Pressable>
+                    </Link>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Delete your rating for ${bathroom.name}`}
+                      hitSlop={4}
+                      onPress={() => {
+                        setDeleteError('');
+                        setDeleteTarget({ visit, bathroom });
+                      }}
+                      style={({ pressed }) => [styles.historyDelete, pressed && styles.pressed]}>
+                      <SymbolView
+                        name={{ ios: 'trash', android: 'delete', web: 'delete' }}
+                        size={18}
+                        tintColor={palette.coral}
+                        fallback={<Text style={styles.deleteFallback}>×</Text>}
                       />
-                      <View style={styles.historyBody}>
-                        <Text style={styles.historyName} numberOfLines={1}>{bathroom.name}</Text>
-                        <Text style={styles.historyMeta}>
-                          {SENTIMENT_LABELS[visit.sentiment]} · {formatReviewAge(visit.observedAt)}
-                        </Text>
-                        <Text style={styles.historyLabels} numberOfLines={1}>
-                          {visit.ratingTags.length
-                            ? `${visit.ratingTags.length} labels saved`
-                            : 'No labels yet'}
-                        </Text>
-                      </View>
-                      <Text style={styles.editReview}>Edit →</Text>
                     </Pressable>
-                  </Link>
+                  </View>
                 ))}
               </View>
             ) : (
@@ -102,7 +154,51 @@ export default function ProfileScreen() {
                 <Text style={styles.panelText}>After you rate a bathroom, reopen it here to change scores, labels, notes, or privacy.</Text>
               </View>
             )}
+            {deleteTarget ? (
+              <View style={styles.deleteConfirm}>
+                <Text style={styles.deleteConfirmTitle}>Delete your {deleteTarget.bathroom.name} rating?</Text>
+                <Text style={styles.deleteConfirmCopy}>The rating, labels, and note will be removed. The bathroom will remain available to rate again.</Text>
+                {deleteError ? <Text style={styles.deleteError}>{deleteError}</Text> : null}
+                <View style={styles.deleteActions}>
+                  <Pressable disabled={deleting} onPress={() => setDeleteTarget(undefined)} style={styles.keepButton}>
+                    <Text style={styles.keepButtonText}>Keep it</Text>
+                  </Pressable>
+                  <Pressable disabled={deleting} onPress={deleteRating} style={styles.confirmDeleteButton}>
+                    {deleting ? <ActivityIndicator color={palette.surface} /> : <Text style={styles.confirmDeleteText}>Delete rating</Text>}
+                  </Pressable>
+                </View>
+              </View>
+            ) : null}
           </Section>
+
+          {unfinishedBathrooms.length ? (
+            <Section title="Bathrooms you added">
+              <View style={styles.historyStack}>
+                {unfinishedBathrooms.map((bathroom) => (
+                  <Link
+                    key={bathroom.id}
+                    href={{ pathname: '/modal', params: { bathroomId: bathroom.id } }}
+                    asChild>
+                    <Pressable accessibilityRole="link" style={styles.addedCard}>
+                      <BathroomPhoto
+                        compact
+                        fallbackLabel={bathroom.name}
+                        photo={bathroom.photos[0]}
+                        style={styles.historyPhoto}
+                      />
+                      <View style={styles.historyBody}>
+                        <Text style={styles.historyName} numberOfLines={1}>{bathroom.name}</Text>
+                        <Text style={styles.historyLabels} numberOfLines={2}>
+                          {bathroom.address || 'Address not confirmed'}
+                        </Text>
+                      </View>
+                      <Text style={styles.finishRating}>Rate now →</Text>
+                    </Pressable>
+                  </Link>
+                ))}
+              </View>
+            </Section>
+          ) : null}
 
           <Section title="Signals">
             {topTags.length ? (
@@ -182,11 +278,29 @@ const styles = StyleSheet.create({
     minHeight: 90,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
     borderRadius: 18,
     borderWidth: 1.5,
     borderColor: palette.cocoaSoft,
     backgroundColor: palette.surface,
+    padding: 7,
+    paddingRight: 9,
+  },
+  historyLink: {
+    flex: 1,
+    minHeight: 74,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  addedCard: {
+    minHeight: 90,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: '#8fcfc0',
+    backgroundColor: palette.mint,
     padding: 10,
   },
   historyPhoto: {
@@ -213,10 +327,82 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
-  editReview: {
+  historyDelete: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: palette.coralSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteFallback: {
     color: palette.coral,
+    fontSize: 22,
+    fontWeight: '900',
+  },
+  finishRating: {
+    color: palette.jade,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  deleteConfirm: {
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: '#ffc4b5',
+    backgroundColor: palette.coralSoft,
+    padding: 14,
+    gap: 8,
+  },
+  deleteConfirmTitle: {
+    color: palette.coral,
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  deleteConfirmCopy: {
+    color: palette.ink,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '700',
+  },
+  deleteError: {
+    color: palette.coralDark,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  deleteActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  keepButton: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 13,
+    borderWidth: 1.5,
+    borderColor: palette.line,
+    backgroundColor: palette.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  keepButtonText: {
+    color: palette.ink,
     fontSize: 13,
     fontWeight: '900',
+  },
+  confirmDeleteButton: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 13,
+    backgroundColor: palette.coral,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmDeleteText: {
+    color: palette.surface,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  pressed: {
+    opacity: 0.65,
   },
   panel: {
     borderRadius: 18,

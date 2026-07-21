@@ -1,6 +1,6 @@
 import { SymbolView } from 'expo-symbols';
-import { Redirect, Tabs } from 'expo-router';
-import { ActivityIndicator, Text, View, type ColorValue } from 'react-native';
+import { Redirect, router, Tabs } from 'expo-router';
+import { ActivityIndicator, StyleSheet, Text, View, type ColorValue } from 'react-native';
 
 import { palette } from '@/components/app/tokens';
 import { useAuth } from '@/src/providers/AuthProvider';
@@ -71,10 +71,20 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="feed"
+        listeners={{
+          tabPress: (event) => {
+            event.preventDefault();
+            router.push('/modal' as any);
+          },
+        }}
         options={{
-          title: 'Feed',
-          tabBarIcon: ({ color }) => (
-            <TabIcon color={color} fallback="F" name={{ ios: 'person.2', android: 'feed', web: 'feed' }} />
+          title: 'Rate',
+          tabBarAccessibilityLabel: 'Rate a bathroom',
+          tabBarLabel: () => null,
+          tabBarIcon: () => (
+            <View style={styles.rateTabButton}>
+              <Text style={styles.rateTabPlus}>+</Text>
+            </View>
           ),
         }}
       />
@@ -99,3 +109,28 @@ export default function TabLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  rateTabButton: {
+    width: 54,
+    height: 54,
+    marginTop: -12,
+    borderRadius: 27,
+    borderWidth: 4,
+    borderColor: palette.surface,
+    backgroundColor: palette.coral,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: palette.ink,
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
+  rateTabPlus: {
+    color: palette.surface,
+    fontSize: 36,
+    lineHeight: 38,
+    fontWeight: '500',
+  },
+});

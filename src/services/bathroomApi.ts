@@ -696,6 +696,28 @@ export async function updateVisitObservation(visitId: string, input: VisitObserv
   return mapOwnVisit(visit, tags);
 }
 
+export async function deleteVisitObservation(visitId: string, bathroomId: string): Promise<void> {
+  if (!isUuid(visitId) || !isUuid(bathroomId)) {
+    throw new Error('This review cannot be deleted until it is connected to Poopi.');
+  }
+
+  const client = requireSupabase();
+  const user = await requirePermanentUser('delete a review');
+  const { data, error } = await client
+    .from('visits')
+    .delete()
+    .eq('id', visitId)
+    .eq('bathroom_id', bathroomId)
+    .eq('user_id', user.id)
+    .select('id')
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) throw new Error('That review was not found or does not belong to your account.');
+
+  bathroomCache.delete(bathroomId);
+}
+
 export async function getOwnVisitHistory(): Promise<Array<{ visit: Visit; bathroom: Bathroom }>> {
   if (!isSupabaseConfigured || !supabase) return [];
   const { data: userData, error: userError } = await supabase.auth.getUser();
@@ -734,6 +756,26 @@ export async function getOwnVisitHistory(): Promise<Array<{ visit: Visit; bathro
       return { visit: mapOwnVisit(row, tagsByVisit.get(row.id) ?? []), bathroom };
     })
     .filter(Boolean) as Array<{ visit: Visit; bathroom: Bathroom }>;
+}
+
+export async function getOwnSubmittedBathrooms(): Promise<Bathroom[]> {
+  if (!isSupabaseConfigured || !supabase) return [];
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData.user || userData.user.is_anonymous) return [];
+
+  const { data: sourceRows, error } = await supabase
+    .from('bathroom_sources')
+    .select('bathroom_id, fetched_at')
+    .eq('source_name', 'user')
+    .like('source_id', `${userData.user.id}:%`)
+    .order('fetched_at', { ascending: false })
+    .limit(30);
+  if (error || !sourceRows?.length) return [];
+
+  const bathrooms = await Promise.all(
+    [...new Set(sourceRows.map((row: any) => String(row.bathroom_id)))].map(getBathroomById),
+  );
+  return bathrooms.filter(Boolean) as Bathroom[];
 }
 
 function validateVisitObservation(input: VisitObservationInput) {
