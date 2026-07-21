@@ -12,8 +12,55 @@ const SENTIMENT_ANCHOR: Record<Sentiment, number> = {
   disliked: 3.8,
 };
 
+export interface ReviewQualityInput {
+  sentiment: Sentiment;
+  cleanlinessRating?: number;
+  odorRating?: number;
+  privacyRating?: number;
+}
+
+export interface SmartComparisonCandidate extends ReviewQualityInput {
+  bathroomId: string;
+  personalScore: number;
+  comparisons: number;
+  reviewedAt?: string;
+}
+
+export interface SmartComparisonPair {
+  focusId: string;
+  opponentId: string;
+  qualityGap: number;
+}
+
 export function seedRating(sentiment: Sentiment): number {
   return SENTIMENT_SEED[sentiment];
+}
+
+/**
+ * Blends the quick overall reaction with the concrete visit dimensions. The
+ * dimensions carry slightly more weight because they are more useful when
+ * finding a close comparison opponent.
+ */
+export function reviewQualityScore({
+  cleanlinessRating,
+  odorRating,
+  privacyRating,
+  sentiment,
+}: ReviewQualityInput): number {
+  const dimensions = [cleanlinessRating, odorRating, privacyRating].filter(
+    (value): value is number => Number.isFinite(value),
+  );
+  if (dimensions.length === 0) {
+    return SENTIMENT_ANCHOR[sentiment];
+  }
+
+  const dimensionScore = (dimensions.reduce((sum, value) => sum + clamp(value, 1, 5), 0) / dimensions.length) * 2;
+  return roundToTenth(clamp(SENTIMENT_ANCHOR[sentiment] * 0.45 + dimensionScore * 0.55, 1, 10));
+}
+
+/** Seeds a new personal Elo rating from the structured review before any comparisons. */
+export function reviewSeedRating(input: ReviewQualityInput): number {
+  return Math.round(clamp(1500 + (reviewQualityScore(input) - 6) * 50, 1350, 1700));
 }
 
 export function expectedScore(itemRating: number, opponentRating: number): number {
@@ -196,6 +243,67 @@ export function selectBinaryInsertionPair(
   return candidates[Math.floor(candidates.length / 2)] ?? null;
 }
 
+/**
+ * Chooses an unanswered opponent for the newly/recently rated bathroom. Close
+ * review quality is the strongest signal, followed by personal score and how
+ * recently the opponent was reviewed. This makes each question informative
+ * without repeatedly asking about the same pair.
+ */
+export function selectSmartComparisonPair(
+  candidates: SmartComparisonCandidate[],
+  answeredComparisons: PairwiseComparison[],
+  preferredBathroomId?: string,
+  now = new Date(),
+): SmartComparisonPair | null {
+  if (candidates.length < 2) return null;
+
+  const focus =
+    candidates.find(({ bathroomId }) => bathroomId === preferredBathroomId) ??
+    [...candidates].sort(
+      (a, b) => timestamp(b.reviewedAt) - timestamp(a.reviewedAt) || a.bathroomId.localeCompare(b.bathroomId),
+    )[0];
+  if (!focus) return null;
+
+  const comparedIds = new Set(
+    answeredComparisons.flatMap((comparison) => {
+      if (comparison.winnerId === focus.bathroomId) return [comparison.loserId];
+      if (comparison.loserId === focus.bathroomId) return [comparison.winnerId];
+      return [];
+    }),
+  );
+  const focusQuality = reviewQualityScore(focus);
+  const opponents = candidates
+    .filter(({ bathroomId }) => bathroomId !== focus.bathroomId && !comparedIds.has(bathroomId))
+    .map((candidate) => {
+      const qualityGap = Math.abs(focusQuality - reviewQualityScore(candidate));
+      const personalGap = Math.abs(focus.personalScore - candidate.personalScore);
+      const ageDays = candidate.reviewedAt
+        ? Math.max(0, (now.getTime() - timestamp(candidate.reviewedAt)) / 86_400_000)
+        : 365;
+      const selectionCost =
+        qualityGap * 4 +
+        personalGap * 0.35 +
+        Math.min(ageDays, 90) * 0.025 +
+        Math.abs(focus.comparisons - candidate.comparisons) * 0.02;
+      return { candidate, qualityGap, selectionCost };
+    })
+    .sort(
+      (a, b) =>
+        a.selectionCost - b.selectionCost ||
+        timestamp(b.candidate.reviewedAt) - timestamp(a.candidate.reviewedAt) ||
+        a.candidate.bathroomId.localeCompare(b.candidate.bathroomId),
+    );
+
+  const opponent = opponents[0];
+  return opponent
+    ? {
+        focusId: focus.bathroomId,
+        opponentId: opponent.candidate.bathroomId,
+        qualityGap: roundToTenth(opponent.qualityGap),
+      }
+    : null;
+}
+
 export interface RecommendationInput {
   bathroom: Bathroom;
   targetLatitude: number;
@@ -247,4 +355,9 @@ function roundToTenth(value: number): number {
 
 function roundToHundredth(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+function timestamp(value?: string): number {
+  const parsed = value ? Date.parse(value) : 0;
+  return Number.isFinite(parsed) ? parsed : 0;
 }

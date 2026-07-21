@@ -19,6 +19,7 @@ import type {
   OperatingStatus,
   FreshnessState,
   PublicBathroomReview,
+  PairwiseComparison,
 } from '@/src/data/types';
 import { isRatingLabel } from '@/src/data/ratingLabels';
 import { normalizeBathroomFeatures } from '@/src/data/bathroomFeatures';
@@ -31,6 +32,9 @@ import {
   distanceKm,
   rankCommunityComparisons,
   recommendationScore,
+  reviewQualityScore,
+  reviewSeedRating,
+  selectSmartComparisonPair,
   scoreMapFromRatings,
   sortRatings,
 } from '@/src/lib/ranking';
@@ -64,6 +68,25 @@ export interface ProfileSummary {
   listsCount: number;
   confidenceBoosts: number;
   favoriteTags: FeatureTag[];
+}
+
+export interface RankedBathroom {
+  bathroom: Bathroom;
+  rating: UserRating;
+  score: number;
+  rank: number;
+  qualityScore: number;
+  reviewedAt?: string;
+  cleanlinessRating?: number;
+  odorRating?: number;
+  privacyRating?: number;
+}
+
+export interface ComparisonCandidates {
+  ranked: RankedBathroom[];
+  left?: RankedBathroom;
+  right?: RankedBathroom;
+  qualityGap?: number;
 }
 
 type SupabaseBathroomRow = {
@@ -188,9 +211,7 @@ export async function getBathroomById(id: string): Promise<Bathroom | undefined>
   );
 }
 
-export async function getRankedBathrooms(): Promise<
-  Array<{ bathroom: Bathroom; rating: UserRating; score: number; rank: number }>
-> {
+export async function getRankedBathrooms(): Promise<RankedBathroom[]> {
   if (!isSupabaseConfigured || !supabase) {
     return [];
   }
@@ -203,7 +224,7 @@ export async function getRankedBathrooms(): Promise<
   const primaryRatingsResult = await supabase
     .from('user_bathroom_ratings')
     .select(
-      'bathroom_id, rating, comparisons, sentiment, bathrooms(id, name, kind, address, neighborhood, city, access, fee_required, price_note, opening_hours, confidence, directions_note, last_confirmed_at, bathroom_features(feature), bathroom_sources(source_name, source_id, fetched_at, license, confidence, confirmed_by_users, contradicted_by_users), photos(id, storage_path, alt, moderation_status))',
+      'bathroom_id, rating, comparisons, sentiment, updated_at, bathrooms(id, name, kind, address, neighborhood, city, access, fee_required, price_note, opening_hours, confidence, directions_note, last_confirmed_at, bathroom_features(feature), bathroom_sources(source_name, source_id, fetched_at, license, confidence, confirmed_by_users, contradicted_by_users), photos(id, storage_path, alt, moderation_status))',
     )
     .eq('user_id', userData.user.id);
   let data: any[] | null = primaryRatingsResult.data;
@@ -213,7 +234,7 @@ export async function getRankedBathrooms(): Promise<
     const legacyRatingsResult = await supabase
       .from('user_bathroom_ratings')
       .select(
-        'bathroom_id, rating, comparisons, sentiment, bathrooms(id, name, kind, address, neighborhood, city, access, price_note, opening_hours, confidence, directions_note, last_confirmed_at, bathroom_features(feature), bathroom_sources(source_name, source_id, fetched_at, license, confidence, confirmed_by_users, contradicted_by_users), photos(id, storage_path, alt, moderation_status))',
+        'bathroom_id, rating, comparisons, sentiment, updated_at, bathrooms(id, name, kind, address, neighborhood, city, access, price_note, opening_hours, confidence, directions_note, last_confirmed_at, bathroom_features(feature), bathroom_sources(source_name, source_id, fetched_at, license, confidence, confirmed_by_users, contradicted_by_users), photos(id, storage_path, alt, moderation_status))',
       )
       .eq('user_id', userData.user.id);
     data = legacyRatingsResult.data;
@@ -231,6 +252,21 @@ export async function getRankedBathrooms(): Promise<
     sentiment: row.sentiment as Sentiment,
   }));
   const scores = scoreMapFromRatings(ratings);
+  const bathroomIds = ratings.map(({ bathroomId }) => bathroomId);
+  const latestVisitByBathroom = new Map<string, any>();
+  if (bathroomIds.length) {
+    const { data: visits } = await supabase
+      .from('visits')
+      .select('bathroom_id, cleanliness_rating, odor_rating, privacy_rating, observed_at')
+      .eq('user_id', userData.user.id)
+      .in('bathroom_id', bathroomIds)
+      .order('observed_at', { ascending: false });
+    for (const visit of visits ?? []) {
+      if (!latestVisitByBathroom.has(visit.bathroom_id)) {
+        latestVisitByBathroom.set(visit.bathroom_id, visit);
+      }
+    }
+  }
 
   return sortRatings(ratings)
     .map((rating, index) => {
@@ -239,34 +275,87 @@ export async function getRankedBathrooms(): Promise<
       if (!bathroom) {
         return null;
       }
+      const visit = latestVisitByBathroom.get(rating.bathroomId);
+      const qualityInput = {
+        sentiment: rating.sentiment,
+        cleanlinessRating: visit?.cleanliness_rating ?? undefined,
+        odorRating: visit?.odor_rating ?? undefined,
+        privacyRating: visit?.privacy_rating ?? undefined,
+      };
       return {
         bathroom: cacheBathroom(bathroom),
         rating,
         score: scores[rating.bathroomId] ?? bathroom.scores.community,
         rank: index + 1,
+        qualityScore: reviewQualityScore(qualityInput),
+        reviewedAt: visit?.observed_at ?? row.updated_at ?? undefined,
+        cleanlinessRating: qualityInput.cleanlinessRating,
+        odorRating: qualityInput.odorRating,
+        privacyRating: qualityInput.privacyRating,
       };
     })
-    .filter(Boolean) as Array<{ bathroom: Bathroom; rating: UserRating; score: number; rank: number }>;
+    .filter(Boolean) as RankedBathroom[];
 }
 
-export async function getComparisonCandidates(): Promise<
-  Array<{ bathroom: Bathroom; rating: UserRating; score: number; rank: number }>
-> {
-  const ranked = await getRankedBathrooms();
-  if (ranked.length >= 2) return ranked;
+export async function getComparisonCandidates(preferredBathroomId?: string): Promise<ComparisonCandidates> {
+  let ranked = await getRankedBathrooms();
+  if (!supabase) return { ranked };
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) return { ranked };
+  if (userData.user.is_anonymous && ranked.length < 2) {
+    const existingIds = new Set(ranked.map(({ bathroom }) => bathroom.id));
+    const nearby = await getNearbyBathrooms(DEFAULT_MAP_CENTER);
+    const additions = nearby.filter(({ id }) => isUuid(id) && !existingIds.has(id)).slice(0, 2 - ranked.length);
+    ranked = [
+      ...ranked,
+      ...additions.map(
+        (bathroom, index): RankedBathroom => ({
+          bathroom,
+          rating: { bathroomId: bathroom.id, rating: 1500, comparisons: 0, sentiment: 'fine' },
+          score: bathroom.scores.community || 6,
+          rank: ranked.length + index + 1,
+          qualityScore: bathroom.scores.community || 6,
+        }),
+      ),
+    ];
+  }
+  if (ranked.length < 2) return { ranked };
 
-  const existingIds = new Set(ranked.map(({ bathroom }) => bathroom.id));
-  const nearby = await getNearbyBathrooms(DEFAULT_MAP_CENTER);
-  const additions = nearby.filter(({ id }) => isUuid(id) && !existingIds.has(id)).slice(0, 2 - ranked.length);
-  return [
-    ...ranked,
-    ...additions.map((bathroom, index) => ({
-      bathroom,
-      rating: { bathroomId: bathroom.id, rating: 1500, comparisons: 0, sentiment: 'fine' as const },
-      score: 6,
-      rank: ranked.length + index + 1,
+  const { data: comparisonRows } = await supabase
+    .from('pairwise_comparisons')
+    .select('id, user_id, winner_bathroom_id, loser_bathroom_id, created_at')
+    .eq('user_id', userData.user.id)
+    .order('created_at', { ascending: false });
+  const comparisons = (comparisonRows ?? []).map(
+    (row: any): PairwiseComparison => ({
+      id: row.id,
+      userId: row.user_id,
+      winnerId: row.winner_bathroom_id,
+      loserId: row.loser_bathroom_id,
+      createdAt: row.created_at,
+    }),
+  );
+  const pair = selectSmartComparisonPair(
+    ranked.map((item) => ({
+      bathroomId: item.bathroom.id,
+      sentiment: item.rating.sentiment,
+      cleanlinessRating: item.cleanlinessRating,
+      odorRating: item.odorRating,
+      privacyRating: item.privacyRating,
+      personalScore: item.score,
+      comparisons: item.rating.comparisons,
+      reviewedAt: item.reviewedAt,
     })),
-  ];
+    comparisons,
+    preferredBathroomId,
+  );
+
+  return {
+    ranked,
+    left: pair ? ranked.find(({ bathroom }) => bathroom.id === pair.focusId) : undefined,
+    right: pair ? ranked.find(({ bathroom }) => bathroom.id === pair.opponentId) : undefined,
+    qualityGap: pair?.qualityGap,
+  };
 }
 
 export async function getFeedItems(): Promise<FeedItem[]> {
@@ -637,6 +726,12 @@ export async function logVisit(input: VisitObservationInput): Promise<Visit> {
 
   validateVisitObservation(input);
   const tags = [...new Set(input.tags)];
+  const { data: existingRating } = await client
+    .from('user_bathroom_ratings')
+    .select('bathroom_id')
+    .eq('user_id', user.id)
+    .eq('bathroom_id', input.bathroomId)
+    .maybeSingle();
 
   const observedAt = input.observedAt ?? new Date().toISOString();
   const visibility = input.visibility ?? 'public';
@@ -658,6 +753,22 @@ export async function logVisit(input: VisitObservationInput): Promise<Visit> {
 
   if (error) {
     throw error;
+  }
+
+  if (!existingRating) {
+    await client
+      .from('user_bathroom_ratings')
+      .update({
+        rating: reviewSeedRating({
+          sentiment: input.sentiment,
+          cleanlinessRating: input.cleanlinessRating,
+          odorRating: input.odorRating,
+          privacyRating: input.privacyRating,
+        }),
+        sentiment: input.sentiment,
+      })
+      .eq('user_id', user.id)
+      .eq('bathroom_id', input.bathroomId);
   }
 
   bathroomCache.delete(input.bathroomId);
@@ -760,9 +871,27 @@ export async function updateVisitObservation(visitId: string, input: VisitObserv
     if (insertError) throw insertError;
   }
 
+  const { data: currentRating } = await client
+    .from('user_bathroom_ratings')
+    .select('comparisons')
+    .eq('user_id', user.id)
+    .eq('bathroom_id', input.bathroomId)
+    .maybeSingle();
   await client
     .from('user_bathroom_ratings')
-    .update({ sentiment: input.sentiment })
+    .update({
+      sentiment: input.sentiment,
+      ...(Number(currentRating?.comparisons ?? 0) === 0
+        ? {
+            rating: reviewSeedRating({
+              sentiment: input.sentiment,
+              cleanlinessRating: input.cleanlinessRating,
+              odorRating: input.odorRating,
+              privacyRating: input.privacyRating,
+            }),
+          }
+        : {}),
+    })
     .eq('user_id', user.id)
     .eq('bathroom_id', input.bathroomId);
 

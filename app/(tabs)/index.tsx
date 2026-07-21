@@ -13,7 +13,7 @@ import { buildWalkingDirectionsUrl, formatDistance, formatWalkingEta } from '@/s
 import { viewportMoved, viewportRadiusMeters, type MapViewport } from '@/src/lib/mapDiscovery';
 import { useAuth } from '@/src/providers/AuthProvider';
 import { DEFAULT_MAP_CENTER, getNearbyBathrooms } from '@/src/services/bathroomApi';
-import { searchPlaces, type PlaceSearchResult } from '@/src/services/placeSearch';
+import { normalizePlaceQuery, searchPlaces, type PlaceSearchResult } from '@/src/services/placeSearch';
 
 type ToggleFilterKey =
   | 'openNow'
@@ -74,13 +74,13 @@ export default function MapScreen() {
   const [error, setError] = useState('');
 
   const matchingBathrooms = useMemo(() => {
-    const normalized = query.trim().toLocaleLowerCase();
+    const normalized = normalizePlaceQuery(query);
     if (normalized.length < 2) return [];
     return bathrooms
       .filter((bathroom) =>
         [bathroom.name, bathroom.address, bathroom.neighborhood, bathroom.city]
           .filter(Boolean)
-          .some((value) => value.toLocaleLowerCase().includes(normalized)),
+          .some((value) => normalizePlaceQuery(value).includes(normalized)),
       )
       .slice(0, 4);
   }, [bathrooms, query]);

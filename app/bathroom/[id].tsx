@@ -37,11 +37,12 @@ import {
 } from '@/src/lib/reviewPresentation';
 
 export default function BathroomDetailScreen() {
-  const { id, reviewed, updated, deleted } = useLocalSearchParams<{
+  const { id, reviewed, updated, deleted, compared } = useLocalSearchParams<{
     id: string;
     reviewed?: string;
     updated?: string;
     deleted?: string;
+    compared?: string;
   }>();
   const { isAnonymous, session } = useAuth();
   const [bathroom, setBathroom] = useState<Bathroom>();
@@ -55,7 +56,9 @@ export default function BathroomDetailScreen() {
     deleted === '1'
       ? 'Your rating was deleted. You can rate this bathroom again anytime.'
       : reviewed === '1'
-        ? updated === '1'
+        ? compared === '1'
+          ? 'Your review was saved and your comparison updated its personal score.'
+          : updated === '1'
           ? 'Your review was updated and the community summary was refreshed.'
           : 'Your review was saved and the community summary was refreshed.'
         : '',
@@ -74,11 +77,13 @@ export default function BathroomDetailScreen() {
     if (reviewed !== '1') return;
     setActionError(false);
     setActionMessage(
-      updated === '1'
+      compared === '1'
+        ? 'Your review was saved and your comparison updated its personal score.'
+        : updated === '1'
         ? 'Your review was updated and the community summary was refreshed.'
         : 'Your review was saved and the community summary was refreshed.',
     );
-  }, [deleted, reviewed, updated]);
+  }, [compared, deleted, reviewed, updated]);
 
   useEffect(() => {
     let cancelled = false;
@@ -103,7 +108,7 @@ export default function BathroomDetailScreen() {
     return () => {
       cancelled = true;
     };
-  }, [id, canContribute, deleted, reviewed, updated]);
+  }, [id, canContribute, compared, deleted, reviewed, updated]);
 
   useEffect(() => {
     if (!bathroom) return;
