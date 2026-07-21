@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Linking, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { BathroomPhoto } from '@/components/app/BathroomPhoto';
+import { BathroomPhotoUpload } from '@/components/app/BathroomPhotoUpload';
 import { ScorePill } from '@/components/app/ScorePill';
 import { Section, Screen } from '@/components/app/Screen';
 import { ACCESS_LABELS, FEATURE_LABELS, TagChip } from '@/components/app/TagChip';
@@ -257,6 +258,16 @@ export default function BathroomDetailScreen() {
             </Text>
           </Pressable>
         </Link>
+
+        {canContribute ? (
+          <Section title="Add a photo">
+            <BathroomPhotoUpload
+              bathroomId={bathroom.id}
+              bathroomName={bathroom.name}
+              onUploaded={(photo) => setBathroom((current) => current ? { ...current, photos: [photo, ...current.photos] } : current)}
+            />
+          </Section>
+        ) : null}
 
         <Section title="Access and essentials">
           <View style={styles.factGrid}>

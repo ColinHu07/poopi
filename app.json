@@ -39,7 +39,16 @@
           "locationWhenInUsePermission": "Allow Poopi to find nearby bathrooms."
         }
       ],
-      "expo-maps"
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Poopi to choose a bathroom photo.",
+          "cameraPermission": "Allow Poopi to take a bathroom photo.",
+          "microphonePermission": false
+        }
+      ],
+      "expo-maps",
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true

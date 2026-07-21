@@ -1,5 +1,6 @@
 import 'leaflet/dist/leaflet.css';
 
+import { Asset } from 'expo-asset';
 import { useEffect, useRef, useState } from 'react';
 
 import type { Bathroom } from '@/src/data/types';
@@ -16,6 +17,7 @@ interface BathroomMapProps {
 }
 
 type LeafletModule = typeof import('leaflet');
+const MASCOT_URL = Asset.fromModule(require('../../assets/images/icon.png')).uri;
 
 export function BathroomMap({
   bathrooms,
@@ -109,7 +111,9 @@ export function BathroomMap({
       const markerSize = isCluster ? 42 : selected ? 34 : 28;
       const icon = L.divIcon({
         className: '',
-        html: `<div style="display:flex;align-items:center;justify-content:center;width:${markerSize}px;height:${markerSize}px;border:3px solid #fffaf2;border-radius:999px;background:${selected ? '#ee684f' : isCluster ? '#168c7b' : '#2b1d18'};color:#fffaf2;font:900 ${isCluster ? 14 : 12}px system-ui;box-shadow:0 5px 16px rgba(43,29,24,.25);box-sizing:border-box">${isCluster ? cluster.bathrooms.length : '•'}</div>`,
+        html: isCluster
+          ? `<div style="display:flex;align-items:center;justify-content:center;width:${markerSize}px;height:${markerSize}px;border:3px solid #fffaf2;border-radius:999px;background:#168c7b;color:#fffaf2;font:900 14px system-ui;box-shadow:0 5px 16px rgba(43,29,24,.25);box-sizing:border-box">${cluster.bathrooms.length}</div>`
+          : `<div style="display:flex;align-items:center;justify-content:center;width:${markerSize}px;height:${markerSize}px;border:${selected ? 4 : 3}px solid ${selected ? '#ee684f' : '#fffaf2'};border-radius:999px;background:#fffaf2;box-shadow:0 5px 16px rgba(43,29,24,.28);box-sizing:border-box;overflow:hidden"><img src="${MASCOT_URL}" alt="" style="width:100%;height:100%;object-fit:cover" /></div>`,
         iconAnchor: [markerSize / 2, markerSize / 2],
         iconSize: [markerSize, markerSize],
       });
