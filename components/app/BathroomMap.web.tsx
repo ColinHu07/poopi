@@ -161,8 +161,8 @@ export function BathroomMap({
       aria-label={`Interactive map showing ${bathrooms.length} nearby bathrooms`}
       style={{
         position: 'relative',
-        height: 'min(52vh, 520px)',
-        minHeight: 360,
+        height: 'min(44vh, 440px)',
+        minHeight: 300,
         overflow: 'hidden',
         border: '2px solid #dacbbb',
         borderRadius: 22,

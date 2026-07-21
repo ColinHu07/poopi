@@ -1,6 +1,6 @@
 import { AppleMaps } from 'expo-maps';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import type { Bathroom } from '@/src/data/types';
 import { clusterBathrooms, type MapViewport } from '@/src/lib/mapDiscovery';
@@ -25,6 +25,7 @@ export function BathroomMap({
   onViewportChange,
   recenterNonce = 0,
 }: BathroomMapProps) {
+  const { width } = useWindowDimensions();
   const mapRef = useRef<AppleMaps.MapView | null>(null);
   const [zoom, setZoom] = useState(14);
   const clusters = useMemo(() => clusterBathrooms(bathrooms, zoom), [bathrooms, zoom]);
@@ -51,7 +52,7 @@ export function BathroomMap({
   }, [center.latitude, center.longitude, recenterNonce]);
 
   return (
-    <View style={styles.mapWrap}>
+    <View style={[styles.mapWrap, width < 600 && styles.mapWrapPhone]}>
       <AppleMaps.View
         ref={mapRef}
         style={styles.map}
@@ -106,6 +107,9 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: palette.line,
     backgroundColor: palette.surface,
+  },
+  mapWrapPhone: {
+    height: 340,
   },
   map: {
     flex: 1,
