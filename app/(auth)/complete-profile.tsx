@@ -98,7 +98,8 @@ const styles = StyleSheet.create({
   },
   title: {
     color: palette.ink,
-    fontSize: 34,
+    fontSize: 38,
+    letterSpacing: -1,
     fontWeight: '900',
   },
   copy: {
@@ -125,8 +126,8 @@ const styles = StyleSheet.create({
   },
   input: {
     minHeight: 50,
-    borderRadius: 8,
-    borderWidth: 1,
+    borderRadius: 16,
+    borderWidth: 1.5,
     borderColor: palette.line,
     backgroundColor: palette.surface,
     color: palette.ink,
@@ -145,9 +146,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   primaryButton: {
-    minHeight: 52,
-    borderRadius: 8,
-    backgroundColor: palette.ink,
+    minHeight: 56,
+    borderRadius: 18,
+    backgroundColor: palette.coral,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 4,

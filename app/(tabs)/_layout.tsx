@@ -2,8 +2,6 @@ import { SymbolView } from 'expo-symbols';
 import { Redirect, Tabs } from 'expo-router';
 import { ActivityIndicator, Text, View, type ColorValue } from 'react-native';
 
-import Colors from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
 import { palette } from '@/components/app/tokens';
 import { useAuth } from '@/src/providers/AuthProvider';
 
@@ -19,7 +17,6 @@ function TabIcon({ color, name, fallback }: { color: ColorValue; name: any; fall
 }
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
   const { isAnonymous, loading, profileComplete, session } = useAuth();
 
   if (loading) {
@@ -37,14 +34,20 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme].tint,
-        tabBarInactiveTintColor: Colors[colorScheme].tabIconDefault,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '800' },
+        tabBarActiveTintColor: palette.jade,
+        tabBarInactiveTintColor: palette.muted,
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '900', paddingBottom: 2 },
         tabBarStyle: {
-          borderTopColor: '#dedbd2',
-          backgroundColor: '#fffdf8',
-          minHeight: 68,
-          paddingTop: 8,
+          borderTopColor: palette.cocoaSoft,
+          borderTopWidth: 1.5,
+          backgroundColor: palette.surface,
+          minHeight: 74,
+          paddingTop: 9,
+          elevation: 12,
+          shadowColor: palette.ink,
+          shadowOpacity: 0.1,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: -4 },
         },
         headerShown: false,
       }}>

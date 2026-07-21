@@ -77,8 +77,8 @@ const styles = StyleSheet.create({
   item: {
     flexDirection: 'row',
     gap: 12,
-    borderRadius: 8,
-    borderWidth: 1,
+    borderRadius: 18,
+    borderWidth: 1.5,
     borderColor: palette.line,
     backgroundColor: palette.surface,
     padding: 12,
@@ -86,13 +86,13 @@ const styles = StyleSheet.create({
   avatar: {
     width: 42,
     height: 42,
-    borderRadius: 8,
-    backgroundColor: palette.plumSoft,
+    borderRadius: 15,
+    backgroundColor: palette.goldSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
-    color: palette.plum,
+    color: palette.cocoa,
     fontSize: 18,
     fontWeight: '900',
   },
@@ -117,8 +117,8 @@ const styles = StyleSheet.create({
   },
   empty: {
     minHeight: 120,
-    borderRadius: 8,
-    borderWidth: 1,
+    borderRadius: 20,
+    borderWidth: 1.5,
     borderColor: palette.line,
     backgroundColor: palette.surface,
     justifyContent: 'center',

@@ -24,8 +24,10 @@ import {
   createBathroomCandidate,
   DEFAULT_MAP_CENTER,
   getBathroomById,
+  getLatestOwnVisit,
   getNearbyBathrooms,
   logVisit,
+  updateVisitObservation,
 } from '@/src/services/bathroomApi';
 import {
   findCurrentPlace,
@@ -37,9 +39,9 @@ import { STATUS_LABELS, WAIT_LABELS } from '@/src/lib/bathroomSummary';
 import { errorMessage } from '@/src/lib/errors';
 
 const SENTIMENTS: Array<{ id: Sentiment; label: string }> = [
-  { id: 'liked', label: 'Liked' },
-  { id: 'fine', label: 'Fine' },
-  { id: 'disliked', label: 'Disliked' },
+  { id: 'liked', label: 'Loved it' },
+  { id: 'fine', label: 'It was fine' },
+  { id: 'disliked', label: 'Not for me' },
 ];
 
 const ACCESS_OPTIONS: Array<{ id: AccessType; label: string }> = [
@@ -104,6 +106,8 @@ export default function ModalScreen() {
   const [selectedTags, setSelectedTags] = useState<RatingLabel[]>([]);
   const [note, setNote] = useState('');
   const [privateNote, setPrivateNote] = useState('');
+  const [editingVisitId, setEditingVisitId] = useState<string>();
+  const [originalObservedAt, setOriginalObservedAt] = useState<string>();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -120,14 +124,51 @@ export default function ModalScreen() {
   useEffect(() => {
     if (!bathroomId) {
       setBathroom(undefined);
+      resetReviewForm();
       loadNearbyCandidates();
     } else {
       setLoading(true);
-      getBathroomById(bathroomId)
-        .then(setBathroom)
+      Promise.all([getBathroomById(bathroomId), getLatestOwnVisit(bathroomId)])
+        .then(([nextBathroom, ownVisit]) => {
+          setBathroom(nextBathroom);
+          if (ownVisit) {
+            setEditingVisitId(ownVisit.id);
+            setOriginalObservedAt(ownVisit.observedAt);
+            setSentiment(ownVisit.sentiment);
+            setCleanlinessRating(ownVisit.cleanlinessRating);
+            setOdorRating(ownVisit.odorRating);
+            setPrivacyRating(ownVisit.privacyRating);
+            setWaitBucket(ownVisit.waitBucket);
+            setObservedAccess(ownVisit.observedAccess);
+            setObservedStatus(ownVisit.observedStatus ?? 'unknown');
+            setVisibility(ownVisit.visibility);
+            setSelectedTags(ownVisit.ratingTags);
+            setNote(ownVisit.publicNote);
+            setPrivateNote(ownVisit.privateNote ?? '');
+          } else {
+            resetReviewForm();
+          }
+        })
+        .catch((err) => setError(errorMessage(err, 'Unable to load your review.')))
         .finally(() => setLoading(false));
     }
   }, [bathroomId]);
+
+  function resetReviewForm() {
+    setEditingVisitId(undefined);
+    setOriginalObservedAt(undefined);
+    setSentiment(null);
+    setCleanlinessRating(undefined);
+    setOdorRating(undefined);
+    setPrivacyRating(undefined);
+    setWaitBucket(undefined);
+    setObservedAccess(undefined);
+    setObservedStatus('unknown');
+    setVisibility('public');
+    setSelectedTags([]);
+    setNote('');
+    setPrivateNote('');
+  }
 
   async function loadNearbyCandidates() {
     setLoading(true);
@@ -297,7 +338,7 @@ export default function ModalScreen() {
     setSaving(true);
     setError('');
     try {
-      await logVisit({
+      const observation = {
         bathroomId: bathroom.id,
         sentiment,
         publicNote: note.trim(),
@@ -310,8 +351,17 @@ export default function ModalScreen() {
         observedAccess,
         observedStatus,
         visibility,
+        observedAt: originalObservedAt,
+      };
+      if (editingVisitId) {
+        await updateVisitObservation(editingVisitId, observation);
+      } else {
+        await logVisit(observation);
+      }
+      router.replace({
+        pathname: '/bathroom/[id]',
+        params: { id: bathroom.id, reviewed: '1', updated: editingVisitId ? '1' : undefined },
       });
-      router.replace({ pathname: '/bathroom/[id]', params: { id: bathroom.id, reviewed: '1' } });
     } catch (err) {
       setError(errorMessage(err, 'Unable to save visit.'));
     } finally {
@@ -620,7 +670,14 @@ export default function ModalScreen() {
   }
 
   return (
-    <Screen kicker="New visit" title={bathroom.name}>
+    <Screen kicker={editingVisitId ? 'Your review' : 'New visit'} title={bathroom.name}>
+      {editingVisitId ? (
+        <View style={styles.editingBanner}>
+          <Text style={styles.editingEyebrow}>EDIT MODE</Text>
+          <Text style={styles.editingTitle}>Your last review is ready to update.</Text>
+          <Text style={styles.editingCopy}>Change any score, label, note, wait, access, or privacy setting below.</Text>
+        </View>
+      ) : null}
       <Pressable
         accessibilityRole="button"
         onPress={() => router.replace('/modal' as any)}
@@ -643,9 +700,19 @@ export default function ModalScreen() {
                 style={({ pressed }) => [
                   styles.segment,
                   active && styles.activeSegment,
+                  active && item.id === 'fine' && styles.activeFineSegment,
+                  active && item.id === 'disliked' && styles.activeDislikedSegment,
                   pressed && styles.pressed,
                 ]}>
-                <Text style={[styles.segmentText, active && styles.activeSegmentText]}>{item.label}</Text>
+                <Text
+                  style={[
+                    styles.segmentText,
+                    active && styles.activeSegmentText,
+                    active && item.id === 'fine' && styles.activeFineSegmentText,
+                    active && item.id === 'disliked' && styles.activeDislikedSegmentText,
+                  ]}>
+                  {item.label}
+                </Text>
               </Pressable>
             );
           })}
@@ -757,7 +824,11 @@ export default function ModalScreen() {
           pressed && sentiment && styles.pressed,
         ]}
         onPress={submit}>
-        {saving ? <ActivityIndicator color="#fffaf6" /> : <Text style={styles.submitText}>Save visit</Text>}
+        {saving ? (
+          <ActivityIndicator color="#fffaf6" />
+        ) : (
+          <Text style={styles.submitText}>{editingVisitId ? 'Update my review' : 'Save my review'}</Text>
+        )}
       </Pressable>
 
       <StatusBar style={Platform.OS === 'ios' ? 'light' : 'auto'} />
@@ -837,6 +908,31 @@ function OptionPills<T extends string>({
 }
 
 const styles = StyleSheet.create({
+  editingBanner: {
+    borderRadius: 18,
+    borderWidth: 2,
+    borderColor: palette.jade,
+    backgroundColor: palette.mint,
+    padding: 16,
+    gap: 4,
+  },
+  editingEyebrow: {
+    color: palette.jade,
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  editingTitle: {
+    color: palette.ink,
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  editingCopy: {
+    color: palette.muted,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '700',
+  },
   pickerIntro: {
     color: palette.ink,
     fontSize: 15,
@@ -845,8 +941,8 @@ const styles = StyleSheet.create({
   },
   searchBox: {
     minHeight: 50,
-    borderRadius: 10,
-    borderWidth: 1,
+    borderRadius: 18,
+    borderWidth: 1.5,
     borderColor: palette.line,
     backgroundColor: palette.surface,
     flexDirection: 'row',
@@ -855,10 +951,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   currentPlaceButton: {
-    minHeight: 66,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#b6dfd4',
+    minHeight: 72,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: '#8fcfc0',
     backgroundColor: palette.mint,
     justifyContent: 'center',
     paddingHorizontal: 14,
@@ -897,8 +993,8 @@ const styles = StyleSheet.create({
   },
   fieldInput: {
     minHeight: 50,
-    borderRadius: 10,
-    borderWidth: 1,
+    borderRadius: 16,
+    borderWidth: 1.5,
     borderColor: palette.line,
     backgroundColor: palette.surface,
     color: palette.ink,
@@ -913,14 +1009,14 @@ const styles = StyleSheet.create({
   accessOption: {
     minHeight: 44,
     borderRadius: 22,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: palette.line,
     backgroundColor: palette.surface,
     justifyContent: 'center',
     paddingHorizontal: 14,
   },
   activeAccessOption: {
-    borderColor: '#b6dfd4',
+    borderColor: '#8fcfc0',
     backgroundColor: palette.mint,
   },
   accessOptionText: {
@@ -932,9 +1028,9 @@ const styles = StyleSheet.create({
     color: palette.jade,
   },
   locationBox: {
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#b6dfd4',
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: '#8fcfc0',
     backgroundColor: palette.mint,
     padding: 14,
     gap: 5,
@@ -977,8 +1073,8 @@ const styles = StyleSheet.create({
   secondaryButton: {
     minHeight: 52,
     minWidth: 88,
-    borderRadius: 10,
-    borderWidth: 1,
+    borderRadius: 16,
+    borderWidth: 1.5,
     borderColor: palette.line,
     backgroundColor: palette.surface,
     alignItems: 'center',
@@ -993,7 +1089,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     flex: 1,
     minHeight: 52,
-    borderRadius: 10,
+    borderRadius: 16,
     backgroundColor: palette.coral,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1005,8 +1101,8 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   infoBox: {
-    borderRadius: 10,
-    borderWidth: 1,
+    borderRadius: 18,
+    borderWidth: 1.5,
     borderColor: palette.line,
     backgroundColor: palette.surface,
     padding: 14,
@@ -1025,7 +1121,7 @@ const styles = StyleSheet.create({
   },
   placeSearchButton: {
     minHeight: 50,
-    borderRadius: 10,
+    borderRadius: 16,
     backgroundColor: palette.jade,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1043,8 +1139,8 @@ const styles = StyleSheet.create({
   },
   placeCard: {
     minHeight: 76,
-    borderRadius: 10,
-    borderWidth: 1,
+    borderRadius: 18,
+    borderWidth: 1.5,
     borderColor: palette.line,
     backgroundColor: palette.surface,
     flexDirection: 'row',
@@ -1086,8 +1182,8 @@ const styles = StyleSheet.create({
   },
   manualButton: {
     minHeight: 72,
-    borderRadius: 10,
-    borderWidth: 1,
+    borderRadius: 18,
+    borderWidth: 1.5,
     borderColor: '#ffc4b5',
     backgroundColor: palette.coralSoft,
     justifyContent: 'center',
@@ -1144,9 +1240,9 @@ const styles = StyleSheet.create({
   },
   segment: {
     flex: 1,
-    minHeight: 44,
-    borderRadius: 8,
-    borderWidth: 1,
+    minHeight: 54,
+    borderRadius: 16,
+    borderWidth: 1.5,
     borderColor: palette.line,
     backgroundColor: palette.surface,
     alignItems: 'center',
@@ -1154,7 +1250,15 @@ const styles = StyleSheet.create({
   },
   activeSegment: {
     backgroundColor: palette.mint,
-    borderColor: '#b6dfd4',
+    borderColor: palette.jade,
+  },
+  activeFineSegment: {
+    backgroundColor: palette.goldSoft,
+    borderColor: palette.butter,
+  },
+  activeDislikedSegment: {
+    backgroundColor: palette.coralSoft,
+    borderColor: palette.coral,
   },
   segmentText: {
     color: palette.ink,
@@ -1163,6 +1267,12 @@ const styles = StyleSheet.create({
   },
   activeSegmentText: {
     color: palette.jade,
+  },
+  activeFineSegmentText: {
+    color: palette.gold,
+  },
+  activeDislikedSegmentText: {
+    color: palette.coralDark,
   },
   ratingHint: {
     color: palette.muted,
@@ -1177,8 +1287,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   dimensionBlock: {
-    borderRadius: 10,
-    borderWidth: 1,
+    borderRadius: 18,
+    borderWidth: 1.5,
     borderColor: palette.line,
     backgroundColor: palette.surface,
     padding: 12,
@@ -1206,8 +1316,8 @@ const styles = StyleSheet.create({
   numberOption: {
     flex: 1,
     minHeight: 44,
-    borderRadius: 8,
-    borderWidth: 1,
+    borderRadius: 13,
+    borderWidth: 1.5,
     borderColor: palette.line,
     backgroundColor: palette.paper,
     alignItems: 'center',
@@ -1242,7 +1352,7 @@ const styles = StyleSheet.create({
   optionPill: {
     minHeight: 44,
     borderRadius: 22,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: palette.line,
     backgroundColor: palette.surface,
     justifyContent: 'center',
@@ -1250,7 +1360,7 @@ const styles = StyleSheet.create({
   },
   activeOptionPill: {
     backgroundColor: palette.mint,
-    borderColor: '#b6dfd4',
+    borderColor: palette.jade,
   },
   optionPillText: {
     color: palette.ink,
@@ -1267,8 +1377,8 @@ const styles = StyleSheet.create({
   visibilityOption: {
     flex: 1,
     minHeight: 68,
-    borderRadius: 10,
-    borderWidth: 1,
+    borderRadius: 16,
+    borderWidth: 1.5,
     borderColor: palette.line,
     backgroundColor: palette.surface,
     justifyContent: 'center',
@@ -1276,7 +1386,7 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   activeVisibilityOption: {
-    borderColor: '#b6dfd4',
+    borderColor: palette.jade,
     backgroundColor: palette.mint,
   },
   visibilityTitle: {
@@ -1294,8 +1404,8 @@ const styles = StyleSheet.create({
   },
   noteInput: {
     minHeight: 120,
-    borderRadius: 8,
-    borderWidth: 1,
+    borderRadius: 18,
+    borderWidth: 1.5,
     borderColor: palette.line,
     backgroundColor: palette.surface,
     color: palette.ink,
@@ -1308,7 +1418,7 @@ const styles = StyleSheet.create({
     backgroundColor: palette.goldSoft,
   },
   safetyBox: {
-    borderRadius: 8,
+    borderRadius: 18,
     backgroundColor: palette.coralSoft,
     borderWidth: 1,
     borderColor: '#ffc4b5',
@@ -1333,8 +1443,8 @@ const styles = StyleSheet.create({
   },
   loading: {
     minHeight: 130,
-    borderRadius: 8,
-    borderWidth: 1,
+    borderRadius: 18,
+    borderWidth: 1.5,
     borderColor: palette.line,
     backgroundColor: palette.surface,
     alignItems: 'center',
@@ -1342,8 +1452,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   submitButton: {
-    minHeight: 52,
-    borderRadius: 8,
+    minHeight: 58,
+    borderRadius: 18,
     backgroundColor: palette.coral,
     alignItems: 'center',
     justifyContent: 'center',

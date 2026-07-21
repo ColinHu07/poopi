@@ -42,8 +42,8 @@ export function BathroomMap({ bathrooms, center, locationGranted, selectedId, on
 const styles = StyleSheet.create({
   fallback: {
     minHeight: 300,
-    borderRadius: 8,
-    borderWidth: 1,
+    borderRadius: 22,
+    borderWidth: 1.5,
     borderColor: palette.line,
     backgroundColor: palette.surface,
     padding: 16,
@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
   },
   fallbackRow: {
     minHeight: 44,
-    borderRadius: 8,
+    borderRadius: 14,
     backgroundColor: palette.paper,
     flexDirection: 'row',
     alignItems: 'center',

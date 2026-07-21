@@ -88,8 +88,8 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   card: {
-    borderRadius: 8,
-    borderWidth: 1,
+    borderRadius: 20,
+    borderWidth: 1.5,
     borderColor: palette.line,
     backgroundColor: palette.surface,
     overflow: 'hidden',
@@ -129,8 +129,8 @@ const styles = StyleSheet.create({
   },
   empty: {
     minHeight: 120,
-    borderRadius: 8,
-    borderWidth: 1,
+    borderRadius: 20,
+    borderWidth: 1.5,
     borderColor: palette.line,
     backgroundColor: palette.surface,
     justifyContent: 'center',

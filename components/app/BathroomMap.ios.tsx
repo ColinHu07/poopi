@@ -101,9 +101,9 @@ export function BathroomMap({
 const styles = StyleSheet.create({
   mapWrap: {
     height: 390,
-    borderRadius: 12,
+    borderRadius: 22,
     overflow: 'hidden',
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: palette.line,
     backgroundColor: palette.surface,
   },
@@ -117,10 +117,10 @@ const styles = StyleSheet.create({
     color: palette.ink,
     fontSize: 11,
     fontWeight: '900',
-    backgroundColor: 'rgba(255, 253, 248, 0.86)',
+    backgroundColor: 'rgba(255, 250, 242, 0.9)',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 12,
     overflow: 'hidden',
   },
 });

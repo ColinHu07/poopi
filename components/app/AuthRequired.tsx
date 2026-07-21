@@ -68,9 +68,9 @@ export function AuthRequired({ title, description }: { title: string; descriptio
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: palette.line,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: palette.cocoaSoft,
     backgroundColor: palette.surface,
     padding: 20,
     gap: 12,
@@ -97,8 +97,8 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     minHeight: 50,
-    borderRadius: 10,
-    backgroundColor: palette.ink,
+    borderRadius: 16,
+    backgroundColor: palette.coral,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -109,8 +109,8 @@ const styles = StyleSheet.create({
   },
   secondaryButton: {
     minHeight: 50,
-    borderRadius: 10,
-    borderWidth: 1,
+    borderRadius: 16,
+    borderWidth: 1.5,
     borderColor: palette.line,
     backgroundColor: palette.surface,
     alignItems: 'center',
@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   setupCard: {
-    borderRadius: 10,
+    borderRadius: 16,
     backgroundColor: palette.coralSoft,
     padding: 14,
     gap: 5,

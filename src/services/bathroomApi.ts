@@ -537,7 +537,7 @@ async function createBathroomCandidateWithoutCanonicalRpc(
   );
 }
 
-export async function logVisit(input: {
+export interface VisitObservationInput {
   bathroomId: string;
   sentiment: Sentiment;
   publicNote: string;
@@ -551,7 +551,9 @@ export async function logVisit(input: {
   observedStatus?: OperatingStatus;
   visibility?: VisitVisibility;
   observedAt?: string;
-}): Promise<Visit> {
+}
+
+export async function logVisit(input: VisitObservationInput): Promise<Visit> {
   if (!isUuid(input.bathroomId)) {
     throw new Error('This bathroom needs to be imported into Poopi before it can be logged.');
   }
@@ -559,18 +561,7 @@ export async function logVisit(input: {
   const client = requireSupabase();
   const user = await requirePermanentUser('rate a bathroom');
 
-  if (!input.tags.every(isRatingLabel)) {
-    throw new Error('One or more bathroom labels are not supported.');
-  }
-  for (const [name, value] of [
-    ['cleanliness', input.cleanlinessRating],
-    ['odor', input.odorRating],
-    ['privacy', input.privacyRating],
-  ] as const) {
-    if (value !== undefined && !isDimensionRating(value)) {
-      throw new Error(`${name} rating must be a whole number from 1 to 5.`);
-    }
-  }
+  validateVisitObservation(input);
   const tags = [...new Set(input.tags)];
 
   const observedAt = input.observedAt ?? new Date().toISOString();
@@ -616,6 +607,170 @@ export async function logVisit(input: {
     tags,
     companionIds: [],
     createdAt: observedAt,
+  };
+}
+
+export async function getLatestOwnVisit(bathroomId: string): Promise<Visit | undefined> {
+  if (!isUuid(bathroomId) || !isSupabaseConfigured || !supabase) return undefined;
+
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData.user || userData.user.is_anonymous) return undefined;
+
+  const { data: visit, error } = await supabase
+    .from('visits')
+    .select(
+      'id, bathroom_id, user_id, sentiment, public_note, private_note, cleanliness_rating, odor_rating, privacy_rating, wait_bucket, observed_access, observed_status, visibility, observed_at, created_at',
+    )
+    .eq('bathroom_id', bathroomId)
+    .eq('user_id', userData.user.id)
+    .order('observed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !visit) return undefined;
+
+  const { data: tagRows, error: tagError } = await supabase
+    .from('visit_tags')
+    .select('tag')
+    .eq('visit_id', visit.id);
+  if (tagError) throw tagError;
+
+  const tags = (tagRows ?? []).map((row: any) => row.tag).filter(isRatingLabel);
+  return mapOwnVisit(visit, tags);
+}
+
+export async function updateVisitObservation(visitId: string, input: VisitObservationInput): Promise<Visit> {
+  if (!isUuid(visitId) || !isUuid(input.bathroomId)) {
+    throw new Error('This review cannot be edited until it is connected to Poopi.');
+  }
+
+  const client = requireSupabase();
+  const user = await requirePermanentUser('edit a review');
+  validateVisitObservation(input);
+  const tags = [...new Set(input.tags)];
+  const observedAt = input.observedAt ?? new Date().toISOString();
+  const visibility = input.visibility ?? 'public';
+
+  const { data: visit, error } = await client
+    .from('visits')
+    .update({
+      sentiment: input.sentiment,
+      public_note: input.publicNote,
+      private_note: input.privateNote ?? null,
+      cleanliness_rating: input.cleanlinessRating ?? null,
+      odor_rating: input.odorRating ?? null,
+      privacy_rating: input.privacyRating ?? null,
+      wait_bucket: input.waitBucket ?? null,
+      observed_access: input.observedAccess ?? null,
+      observed_status: input.observedStatus ?? 'unknown',
+      visibility,
+      observed_at: observedAt,
+    })
+    .eq('id', visitId)
+    .eq('bathroom_id', input.bathroomId)
+    .eq('user_id', user.id)
+    .select(
+      'id, bathroom_id, user_id, sentiment, public_note, private_note, cleanliness_rating, odor_rating, privacy_rating, wait_bucket, observed_access, observed_status, visibility, observed_at, created_at',
+    )
+    .single();
+
+  if (error || !visit) throw error ?? new Error('This review could not be updated.');
+
+  const { error: deleteError } = await client.from('visit_tags').delete().eq('visit_id', visitId);
+  if (deleteError) throw deleteError;
+
+  if (tags.length) {
+    const { error: insertError } = await client
+      .from('visit_tags')
+      .insert(tags.map((tag) => ({ visit_id: visitId, tag })));
+    if (insertError) throw insertError;
+  }
+
+  await client
+    .from('user_bathroom_ratings')
+    .update({ sentiment: input.sentiment })
+    .eq('user_id', user.id)
+    .eq('bathroom_id', input.bathroomId);
+
+  bathroomCache.delete(input.bathroomId);
+  return mapOwnVisit(visit, tags);
+}
+
+export async function getOwnVisitHistory(): Promise<Array<{ visit: Visit; bathroom: Bathroom }>> {
+  if (!isSupabaseConfigured || !supabase) return [];
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData.user || userData.user.is_anonymous) return [];
+
+  const { data: visits, error } = await supabase
+    .from('visits')
+    .select(
+      'id, bathroom_id, user_id, sentiment, public_note, private_note, cleanliness_rating, odor_rating, privacy_rating, wait_bucket, observed_access, observed_status, visibility, observed_at, created_at',
+    )
+    .eq('user_id', userData.user.id)
+    .order('observed_at', { ascending: false })
+    .limit(30);
+  if (error || !visits?.length) return [];
+
+  const visitIds = visits.map((visit: any) => visit.id);
+  const { data: tagRows } = await supabase.from('visit_tags').select('visit_id, tag').in('visit_id', visitIds);
+  const tagsByVisit = new Map<string, RatingLabel[]>();
+  (tagRows ?? []).forEach((row: any) => {
+    if (!isRatingLabel(row.tag)) return;
+    tagsByVisit.set(row.visit_id, [...(tagsByVisit.get(row.visit_id) ?? []), row.tag]);
+  });
+
+  const bathroomById = new Map<string, Bathroom>();
+  await Promise.all(
+    [...new Set(visits.map((visit: any) => visit.bathroom_id))].map(async (bathroomId) => {
+      const bathroom = await getBathroomById(String(bathroomId));
+      if (bathroom) bathroomById.set(String(bathroomId), bathroom);
+    }),
+  );
+
+  return visits
+    .map((row: any) => {
+      const bathroom = bathroomById.get(row.bathroom_id);
+      if (!bathroom) return undefined;
+      return { visit: mapOwnVisit(row, tagsByVisit.get(row.id) ?? []), bathroom };
+    })
+    .filter(Boolean) as Array<{ visit: Visit; bathroom: Bathroom }>;
+}
+
+function validateVisitObservation(input: VisitObservationInput) {
+  if (!input.tags.every(isRatingLabel)) {
+    throw new Error('One or more bathroom labels are not supported.');
+  }
+  for (const [name, value] of [
+    ['cleanliness', input.cleanlinessRating],
+    ['odor', input.odorRating],
+    ['privacy', input.privacyRating],
+  ] as const) {
+    if (value !== undefined && !isDimensionRating(value)) {
+      throw new Error(`${name} rating must be a whole number from 1 to 5.`);
+    }
+  }
+}
+
+function mapOwnVisit(row: any, tags: RatingLabel[]): Visit {
+  return {
+    id: row.id,
+    bathroomId: row.bathroom_id,
+    userId: row.user_id,
+    sentiment: row.sentiment,
+    cleanlinessRating: row.cleanliness_rating ?? undefined,
+    odorRating: row.odor_rating ?? undefined,
+    privacyRating: row.privacy_rating ?? undefined,
+    waitBucket: row.wait_bucket && isWaitBucket(row.wait_bucket) ? row.wait_bucket : undefined,
+    observedAccess: row.observed_access ?? undefined,
+    observedStatus: row.observed_status && isOperatingStatus(row.observed_status) ? row.observed_status : 'unknown',
+    ratingTags: tags,
+    publicNote: row.public_note ?? '',
+    privateNote: row.private_note ?? undefined,
+    visibility: row.visibility ?? 'public',
+    observedAt: row.observed_at,
+    tags,
+    companionIds: row.companion_ids ?? [],
+    createdAt: row.created_at,
   };
 }
 

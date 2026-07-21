@@ -125,15 +125,15 @@ function Choice({ bathroom, onPress }: { bathroom: Bathroom; onPress: () => void
 }
 
 const styles = StyleSheet.create({
-  guestBox: { borderRadius: 10, borderWidth: 1, borderColor: '#b6dfd4', backgroundColor: palette.mint, padding: 13, gap: 3 },
+  guestBox: { borderRadius: 18, borderWidth: 1.5, borderColor: '#8fcfc0', backgroundColor: palette.mint, padding: 15, gap: 3 },
   guestTitle: { color: palette.jade, fontSize: 14, fontWeight: '900' },
   guestCopy: { color: palette.ink, fontSize: 12, lineHeight: 17, fontWeight: '700' },
   errorBox: { borderRadius: 10, borderWidth: 1, borderColor: '#ffc4b5', backgroundColor: palette.coralSoft, padding: 13 },
   errorText: { color: palette.coral, fontSize: 13, lineHeight: 18, fontWeight: '800' },
   compareCard: {
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: palette.line,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    borderColor: palette.cocoaSoft,
     backgroundColor: palette.surface,
     padding: 14,
     gap: 14,
@@ -158,10 +158,10 @@ const styles = StyleSheet.create({
   choice: {
     flex: 1,
     minHeight: 172,
-    borderRadius: 8,
+    borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: palette.paper,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: palette.line,
   },
   pressed: {
@@ -189,8 +189,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    borderRadius: 8,
-    borderWidth: 1,
+    borderRadius: 18,
+    borderWidth: 1.5,
     borderColor: palette.line,
     backgroundColor: palette.surface,
     padding: 10,
@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
   thumb: {
     width: 54,
     height: 54,
-    borderRadius: 8,
+    borderRadius: 14,
     backgroundColor: palette.line,
   },
   rankBody: {
@@ -224,8 +224,8 @@ const styles = StyleSheet.create({
   },
   empty: {
     minHeight: 120,
-    borderRadius: 8,
-    borderWidth: 1,
+    borderRadius: 18,
+    borderWidth: 1.5,
     borderColor: palette.line,
     backgroundColor: palette.surface,
     padding: 18,

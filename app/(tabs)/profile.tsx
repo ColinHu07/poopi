@@ -1,17 +1,21 @@
-import { useEffect, useState } from 'react';
+import { Link, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { BathroomPhoto } from '@/components/app/BathroomPhoto';
 import { Section, Screen } from '@/components/app/Screen';
 import { AuthRequired } from '@/components/app/AuthRequired';
 import { FEATURE_LABELS, TagChip } from '@/components/app/TagChip';
 import { palette } from '@/components/app/tokens';
-import type { FeatureTag } from '@/src/data/types';
+import type { Bathroom, FeatureTag, Visit } from '@/src/data/types';
 import { useAuth } from '@/src/providers/AuthProvider';
-import { getProfileSummary, type ProfileSummary } from '@/src/services/bathroomApi';
+import { getOwnVisitHistory, getProfileSummary, type ProfileSummary } from '@/src/services/bathroomApi';
+import { formatReviewAge, SENTIMENT_LABELS } from '@/src/lib/reviewPresentation';
 
 export default function ProfileScreen() {
   const { isAnonymous, session, signOut } = useAuth();
   const [profile, setProfile] = useState<ProfileSummary | null>(null);
+  const [history, setHistory] = useState<Array<{ visit: Visit; bathroom: Bathroom }>>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -19,6 +23,19 @@ export default function ProfileScreen() {
       .then(setProfile)
       .finally(() => setLoading(false));
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!session || isAnonymous) return;
+      let cancelled = false;
+      getOwnVisitHistory().then((items) => {
+        if (!cancelled) setHistory(items);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }, [isAnonymous, session]),
+  );
 
   const topTags = [...new Set(profile?.favoriteTags ?? [])].slice(0, 6) as FeatureTag[];
 
@@ -47,6 +64,45 @@ export default function ProfileScreen() {
             <Metric label="visited" value={profile.visitedCount} />
             <Metric label="lists" value={profile.listsCount} />
           </View>
+
+          <Section title="Your bathroom diary">
+            {history.length ? (
+              <View style={styles.historyStack}>
+                {history.map(({ visit, bathroom }) => (
+                  <Link
+                    key={visit.id}
+                    href={{ pathname: '/modal', params: { bathroomId: bathroom.id } }}
+                    asChild>
+                    <Pressable accessibilityRole="link" style={styles.historyCard}>
+                      <BathroomPhoto
+                        compact
+                        fallbackLabel={bathroom.name}
+                        photo={bathroom.photos[0]}
+                        style={styles.historyPhoto}
+                      />
+                      <View style={styles.historyBody}>
+                        <Text style={styles.historyName} numberOfLines={1}>{bathroom.name}</Text>
+                        <Text style={styles.historyMeta}>
+                          {SENTIMENT_LABELS[visit.sentiment]} · {formatReviewAge(visit.observedAt)}
+                        </Text>
+                        <Text style={styles.historyLabels} numberOfLines={1}>
+                          {visit.ratingTags.length
+                            ? `${visit.ratingTags.length} labels saved`
+                            : 'No labels yet'}
+                        </Text>
+                      </View>
+                      <Text style={styles.editReview}>Edit →</Text>
+                    </Pressable>
+                  </Link>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.panel}>
+                <Text style={styles.panelNumber}>Your reviews live here</Text>
+                <Text style={styles.panelText}>After you rate a bathroom, reopen it here to change scores, labels, notes, or privacy.</Text>
+              </View>
+            )}
+          </Section>
 
           <Section title="Signals">
             {topTags.length ? (
@@ -99,8 +155,8 @@ const styles = StyleSheet.create({
   },
   metric: {
     flex: 1,
-    borderRadius: 8,
-    backgroundColor: palette.ink,
+    borderRadius: 18,
+    backgroundColor: palette.jadeDark,
     padding: 14,
   },
   metricValue: {
@@ -119,9 +175,52 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
+  historyStack: {
+    gap: 10,
+  },
+  historyCard: {
+    minHeight: 90,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: palette.cocoaSoft,
+    backgroundColor: palette.surface,
+    padding: 10,
+  },
+  historyPhoto: {
+    width: 68,
+    height: 68,
+    borderRadius: 14,
+  },
+  historyBody: {
+    flex: 1,
+    gap: 3,
+  },
+  historyName: {
+    color: palette.ink,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  historyMeta: {
+    color: palette.jade,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  historyLabels: {
+    color: palette.muted,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  editReview: {
+    color: palette.coral,
+    fontSize: 13,
+    fontWeight: '900',
+  },
   panel: {
-    borderRadius: 8,
-    borderWidth: 1,
+    borderRadius: 18,
+    borderWidth: 1.5,
     borderColor: palette.line,
     backgroundColor: palette.surface,
     padding: 14,
@@ -140,8 +239,8 @@ const styles = StyleSheet.create({
   },
   signOutButton: {
     minHeight: 48,
-    borderRadius: 8,
-    borderWidth: 1,
+    borderRadius: 16,
+    borderWidth: 1.5,
     borderColor: palette.line,
     backgroundColor: palette.surface,
     alignItems: 'center',

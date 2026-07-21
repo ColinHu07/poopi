@@ -42,9 +42,9 @@ export function GoogleAuthButton({
 
 const styles = StyleSheet.create({
   button: {
-    minHeight: 52,
-    borderRadius: 10,
-    borderWidth: 1,
+    minHeight: 54,
+    borderRadius: 18,
+    borderWidth: 1.5,
     borderColor: '#c9c7c0',
     backgroundColor: palette.surface,
     flexDirection: 'row',

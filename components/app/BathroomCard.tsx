@@ -93,28 +93,28 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     gap: 12,
-    borderRadius: 8,
+    borderRadius: 18,
     backgroundColor: palette.surface,
     borderWidth: 1,
     borderColor: palette.line,
-    padding: 10,
+    padding: 11,
     ...shadow,
   },
   compact: {
-    elevation: 1,
+    elevation: 2,
   },
   pressed: {
     transform: [{ scale: 0.99 }],
   },
   image: {
-    width: 82,
-    minHeight: 104,
-    borderRadius: 7,
+    width: 88,
+    minHeight: 112,
+    borderRadius: 14,
     backgroundColor: palette.line,
   },
   body: {
     flex: 1,
-    gap: 7,
+    gap: 6,
   },
   topLine: {
     flexDirection: 'row',
@@ -124,17 +124,17 @@ const styles = StyleSheet.create({
   name: {
     flex: 1,
     color: palette.ink,
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '900',
   },
   score: {
-    minWidth: 42,
-    borderRadius: 8,
+    minWidth: 46,
+    borderRadius: 13,
     overflow: 'hidden',
     backgroundColor: palette.mint,
     color: palette.jade,
     textAlign: 'center',
-    paddingVertical: 6,
+    paddingVertical: 7,
     fontSize: 16,
     fontWeight: '900',
   },
@@ -166,6 +166,6 @@ const styles = StyleSheet.create({
   selected: {
     borderColor: palette.coral,
     borderWidth: 2,
-    backgroundColor: palette.coralSoft,
+    backgroundColor: '#fff3ec',
   },
 });

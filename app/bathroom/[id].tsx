@@ -13,6 +13,7 @@ import { useAuth } from '@/src/providers/AuthProvider';
 import {
   createReport,
   getBathroomById,
+  getLatestOwnVisit,
   getPublicBathroomReviews,
   isBathroomSaved,
   toggleBathroomSaved,
@@ -35,19 +36,36 @@ import {
 } from '@/src/lib/reviewPresentation';
 
 export default function BathroomDetailScreen() {
-  const { id, reviewed } = useLocalSearchParams<{ id: string; reviewed?: string }>();
+  const { id, reviewed, updated } = useLocalSearchParams<{ id: string; reviewed?: string; updated?: string }>();
   const { isAnonymous, session } = useAuth();
   const [bathroom, setBathroom] = useState<Bathroom>();
   const [reviews, setReviews] = useState<PublicBathroomReview[]>([]);
   const [distanceMeters, setDistanceMeters] = useState<number>();
   const [saved, setSaved] = useState(false);
+  const [hasOwnReview, setHasOwnReview] = useState(false);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [actionMessage, setActionMessage] = useState(reviewed === '1' ? 'Your review was saved and the community summary was refreshed.' : '');
+  const [actionMessage, setActionMessage] = useState(
+    reviewed === '1'
+      ? updated === '1'
+        ? 'Your review was updated and the community summary was refreshed.'
+        : 'Your review was saved and the community summary was refreshed.'
+      : '',
+  );
   const [actionError, setActionError] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportDetails, setReportDetails] = useState('');
   const canContribute = Boolean(session && !isAnonymous);
+
+  useEffect(() => {
+    if (reviewed !== '1') return;
+    setActionError(false);
+    setActionMessage(
+      updated === '1'
+        ? 'Your review was updated and the community summary was refreshed.'
+        : 'Your review was saved and the community summary was refreshed.',
+    );
+  }, [reviewed, updated]);
 
   useEffect(() => {
     let cancelled = false;
@@ -56,12 +74,14 @@ export default function BathroomDetailScreen() {
       getBathroomById(id),
       getPublicBathroomReviews(id),
       canContribute ? isBathroomSaved(id).catch(() => false) : Promise.resolve(false),
+      canContribute ? getLatestOwnVisit(id).catch(() => undefined) : Promise.resolve(undefined),
     ])
-      .then(([nextBathroom, nextReviews, nextSaved]) => {
+      .then(([nextBathroom, nextReviews, nextSaved, ownReview]) => {
         if (cancelled) return;
         setBathroom(nextBathroom);
         setReviews(nextReviews);
         setSaved(nextSaved);
+        setHasOwnReview(Boolean(ownReview));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -70,7 +90,7 @@ export default function BathroomDetailScreen() {
     return () => {
       cancelled = true;
     };
-  }, [id, canContribute]);
+  }, [id, canContribute, reviewed, updated]);
 
   useEffect(() => {
     if (!bathroom) return;
@@ -173,18 +193,20 @@ export default function BathroomDetailScreen() {
           </View>
         ) : null}
 
-        <BathroomPhoto fallbackLabel={bathroom.name} photo={bathroom.photos[0]} style={styles.hero} />
+        <View style={styles.heroCard}>
+          <BathroomPhoto fallbackLabel={bathroom.name} photo={bathroom.photos[0]} style={styles.hero} />
 
-        <View style={styles.locationSummary}>
-          <Text style={styles.address}>{bathroom.address || 'Address not confirmed'}</Text>
-          <Text style={styles.distance}>{[distanceLabel, etaLabel].filter(Boolean).join(' · ') || 'Distance unavailable'}</Text>
-        </View>
+          <View style={styles.locationSummary}>
+            <Text style={styles.address}>{bathroom.address || 'Address not confirmed'}</Text>
+            <Text style={styles.distance}>{[distanceLabel, etaLabel].filter(Boolean).join(' · ') || 'Distance unavailable'}</Text>
+          </View>
 
-        <View style={[styles.statusBanner, statusTone(bathroom.summary.operatingStatus)]}>
-          <Text style={styles.statusTitle}>{STATUS_LABELS[bathroom.summary.operatingStatus]}</Text>
-          <Text style={styles.statusMeta}>
-            {confirmationLabel(bathroom.summary.lastConfirmedAt)} · {confidenceLabel(bathroom.summary.confidence)} confidence
-          </Text>
+          <View style={[styles.statusBanner, statusTone(bathroom.summary.operatingStatus)]}>
+            <Text style={styles.statusTitle}>{STATUS_LABELS[bathroom.summary.operatingStatus]}</Text>
+            <Text style={styles.statusMeta}>
+              {confirmationLabel(bathroom.summary.lastConfirmedAt)} · {confidenceLabel(bathroom.summary.confidence)} confidence
+            </Text>
+          </View>
         </View>
 
         {hasAnyScore ? (
@@ -218,7 +240,9 @@ export default function BathroomDetailScreen() {
           href={canContribute ? { pathname: '/modal', params: { bathroomId: bathroom.id } } : ({ pathname: '/sign-in' } as any)}
           asChild>
           <Pressable style={styles.rateButton}>
-            <Text style={styles.rateButtonText}>{canContribute ? 'Rate this bathroom' : 'Sign in to rate'}</Text>
+            <Text style={styles.rateButtonText}>
+              {canContribute ? (hasOwnReview ? 'Edit your review' : 'Rate this bathroom') : 'Sign in to rate'}
+            </Text>
           </Pressable>
         </Link>
 
@@ -388,58 +412,59 @@ function statusTone(status: Bathroom['summary']['operatingStatus']) {
 }
 
 const styles = StyleSheet.create({
-  hero: { height: 260, borderRadius: 10, backgroundColor: palette.line },
-  loading: { minHeight: 140, borderRadius: 10, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface, alignItems: 'center', justifyContent: 'center', gap: 10 },
+  heroCard: { borderRadius: 24, borderWidth: 1.5, borderColor: palette.cocoaSoft, backgroundColor: palette.surface, padding: 10, gap: 12 },
+  hero: { height: 260, borderRadius: 18, backgroundColor: palette.line },
+  loading: { minHeight: 140, borderRadius: 18, borderWidth: 1.5, borderColor: palette.line, backgroundColor: palette.surface, alignItems: 'center', justifyContent: 'center', gap: 10 },
   missing: { color: palette.ink, fontSize: 16, fontWeight: '700' },
-  successBox: { borderRadius: 10, borderWidth: 1, borderColor: '#b6dfd4', backgroundColor: palette.mint, padding: 13 },
+  successBox: { borderRadius: 16, borderWidth: 1.5, borderColor: '#8fcfc0', backgroundColor: palette.mint, padding: 14 },
   successText: { color: palette.jade, fontSize: 13, lineHeight: 19, fontWeight: '900' },
   errorBox: { borderColor: '#ffc4b5', backgroundColor: palette.coralSoft },
   errorText: { color: palette.coral },
-  locationSummary: { gap: 4 },
+  locationSummary: { gap: 4, paddingHorizontal: 4 },
   address: { color: palette.ink, fontSize: 16, lineHeight: 22, fontWeight: '900' },
   distance: { color: palette.muted, fontSize: 13, fontWeight: '800' },
-  statusBanner: { borderRadius: 10, borderWidth: 1, padding: 14, gap: 4 },
-  statusOpen: { backgroundColor: palette.mint, borderColor: '#b6dfd4' },
+  statusBanner: { borderRadius: 16, borderWidth: 1.5, padding: 14, gap: 4 },
+  statusOpen: { backgroundColor: palette.mint, borderColor: '#8fcfc0' },
   statusClosed: { backgroundColor: palette.coralSoft, borderColor: '#ffc4b5' },
   statusUnknown: { backgroundColor: palette.goldSoft, borderColor: '#efd28b' },
   statusTitle: { color: palette.ink, fontSize: 18, fontWeight: '900' },
   statusMeta: { color: palette.muted, fontSize: 12, fontWeight: '800' },
   scoreRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  noScoreBox: { borderRadius: 10, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface, padding: 14, gap: 4 },
+  noScoreBox: { borderRadius: 18, borderWidth: 1.5, borderColor: palette.cocoaSoft, backgroundColor: palette.surface, padding: 16, gap: 4 },
   noScoreTitle: { color: palette.ink, fontSize: 15, fontWeight: '900' },
   noScoreText: { color: palette.muted, fontSize: 13, fontWeight: '700' },
   actions: { flexDirection: 'row', gap: 10 },
-  primaryButton: { flex: 1, minHeight: 50, borderRadius: 10, backgroundColor: palette.jade, alignItems: 'center', justifyContent: 'center' },
+  primaryButton: { flex: 1, minHeight: 52, borderRadius: 16, backgroundColor: palette.jade, alignItems: 'center', justifyContent: 'center' },
   primaryButtonText: { color: '#fffaf6', fontSize: 15, fontWeight: '900' },
-  secondaryButton: { minWidth: 110, minHeight: 50, borderRadius: 10, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
+  secondaryButton: { minWidth: 110, minHeight: 52, borderRadius: 16, borderWidth: 1.5, borderColor: palette.line, backgroundColor: palette.surface, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
   savedButton: { borderColor: '#b6dfd4', backgroundColor: palette.mint },
   secondaryButtonText: { color: palette.jade, fontSize: 15, fontWeight: '900' },
-  rateButton: { minHeight: 52, borderRadius: 10, backgroundColor: palette.coral, alignItems: 'center', justifyContent: 'center' },
+  rateButton: { minHeight: 58, borderRadius: 18, backgroundColor: palette.coral, alignItems: 'center', justifyContent: 'center' },
   rateButtonText: { color: '#fffaf6', fontSize: 16, fontWeight: '900' },
   factGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  fact: { width: '48%', minHeight: 76, borderRadius: 10, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface, padding: 12 },
+  fact: { width: '48%', minHeight: 82, borderRadius: 16, borderWidth: 1.5, borderColor: palette.line, backgroundColor: palette.surface, padding: 13 },
   factLabel: { color: palette.muted, fontSize: 12, fontWeight: '800' },
   factValue: { color: palette.ink, fontSize: 15, fontWeight: '900', marginTop: 6 },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  noteBox: { borderRadius: 10, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface, padding: 14 },
+  noteBox: { borderRadius: 16, borderWidth: 1.5, borderColor: palette.line, backgroundColor: palette.surface, padding: 14 },
   note: { color: palette.ink, fontSize: 14, lineHeight: 21, fontWeight: '700' },
   reviewStack: { gap: 10 },
-  reviewCard: { borderRadius: 10, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface, padding: 14, gap: 10 },
+  reviewCard: { borderRadius: 18, borderWidth: 1.5, borderColor: palette.cocoaSoft, backgroundColor: palette.surface, padding: 15, gap: 10 },
   reviewHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
   reviewSentiment: { color: palette.jade, fontSize: 16, fontWeight: '900' },
   reviewAge: { color: palette.muted, fontSize: 12, fontWeight: '800' },
   reviewMetrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   reviewNote: { color: palette.ink, fontSize: 14, lineHeight: 21, fontWeight: '700' },
   anonymousCopy: { color: palette.muted, fontSize: 10, fontWeight: '700' },
-  reportToggle: { minHeight: 48, borderRadius: 10, borderWidth: 1, borderColor: '#ffc4b5', backgroundColor: palette.coralSoft, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  reportToggle: { minHeight: 50, borderRadius: 16, borderWidth: 1.5, borderColor: '#f3a391', backgroundColor: palette.coralSoft, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   reportToggleText: { color: palette.coral, fontSize: 13, fontWeight: '900', textAlign: 'center' },
-  reportBox: { borderRadius: 10, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface, padding: 12, gap: 10 },
+  reportBox: { borderRadius: 18, borderWidth: 1.5, borderColor: palette.line, backgroundColor: palette.surface, padding: 14, gap: 10 },
   reportHelp: { color: palette.muted, fontSize: 12, lineHeight: 18, fontWeight: '700' },
   reportInput: { minHeight: 72, borderRadius: 8, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.paper, padding: 12, color: palette.ink, fontSize: 14, textAlignVertical: 'top' },
   reportReasons: { gap: 7 },
   reportReason: { minHeight: 44, borderRadius: 8, borderWidth: 1, borderColor: palette.line, justifyContent: 'center', paddingHorizontal: 12 },
   reportReasonText: { color: palette.ink, fontSize: 13, fontWeight: '800' },
-  sourceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderRadius: 10, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface, padding: 12 },
+  sourceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderRadius: 16, borderWidth: 1.5, borderColor: palette.line, backgroundColor: palette.surface, padding: 13 },
   sourceCopy: { flex: 1 },
   sourceName: { color: palette.ink, fontSize: 15, fontWeight: '900', textTransform: 'capitalize' },
   sourceMeta: { color: palette.muted, fontSize: 12, fontWeight: '700', marginTop: 3 },
